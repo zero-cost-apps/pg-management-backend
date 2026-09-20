@@ -7,5 +7,14 @@
     "createdAt": "2026-09-20T07:18:45.556Z",
     "expiresAt": "2026-09-20T07:28:45.556Z",
     "consumedAt": null
+  },
+  {
+    "id": "39da7aaf-2a8a-43fa-9c8c-8e2284d9e375",
+    "userId": "63dacb79-ef82-4d69-a12d-d1c211b9df2a",
+    "identifier": "owner_1789889104127@staysync.in",
+    "otpHash": "e857779aac4b67075856f999ba91fef53ee979570ea7af1a2f8a1fba91455d71",
+    "createdAt": "2026-09-20T07:25:06.446Z",
+    "expiresAt": "2026-09-20T07:35:06.446Z",
+    "consumedAt": null
   }
 ]

@@ -22,5 +22,21 @@
     "createdAt": "2026-09-20T07:18:45.586Z",
     "expiresAt": "2026-10-20T07:18:45.586Z",
     "revokedAt": null
+  },
+  {
+    "id": "171fb915-c768-4751-a346-7e8b1e4676ea",
+    "userId": "63dacb79-ef82-4d69-a12d-d1c211b9df2a",
+    "refreshTokenHash": "a5c2d4275de3f8246eda6891a104557d34ebf6589ed10bd9d4272deafe0959ee",
+    "createdAt": "2026-09-20T07:25:04.234Z",
+    "expiresAt": "2026-10-20T07:25:04.234Z",
+    "revokedAt": "2026-09-20T07:25:06.471Z"
+  },
+  {
+    "id": "2636f3de-c580-4813-9736-88ca09674943",
+    "userId": "63dacb79-ef82-4d69-a12d-d1c211b9df2a",
+    "refreshTokenHash": "e77e4eb76d0e92f36b6c23b61e1660efd1f92e03cb686f3aa9b40bbba416aa51",
+    "createdAt": "2026-09-20T07:25:06.472Z",
+    "expiresAt": "2026-10-20T07:25:06.472Z",
+    "revokedAt": null
   }
 ]

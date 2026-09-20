@@ -1,0 +1,25 @@
+[
+  {
+    "id": "0dd2be0e-12e6-42f9-baf3-9071dd2a6baf",
+    "buildingId": "e912d862-3a8c-470e-8097-e797372a1748",
+    "roomId": "32c87610-4d4f-4f8a-80ab-a30e0cc4c3ae",
+    "roomNumber": "301",
+    "month": "2026-09",
+    "readingDate": "2026-09-02",
+    "previousReading": 1000,
+    "currentReading": 1050,
+    "unitsConsumed": 50,
+    "ratePerUnit": 11.5,
+    "totalAmount": 575,
+    "splitCount": 2,
+    "amountPerTenant": 287.5,
+    "status": "billed",
+    "meterPhotoUrl": null,
+    "hasMeterPhoto": false,
+    "notes": null,
+    "billedTenantIds": [
+      "b8301495-f81a-440d-88c7-fa4adeb81bd6"
+    ],
+    "idempotencyKey": "idemp_elec_1789889104943"
+  }
+]
