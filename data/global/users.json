@@ -1,0 +1,65 @@
+[
+  {
+    "id": "49db3b41-6044-47b7-9dfa-7bec00e5e6ec",
+    "fullName": "Ankit Panchal",
+    "email": "owner_1789884218381@staysync.in",
+    "phone": "9862385915",
+    "role": "owner",
+    "businessName": "Skyline Co-Living & PG",
+    "avatarUrl": null,
+    "isOnboarded": true,
+    "createdAt": "2026-09-20T06:03:38.535Z",
+    "gstNumber": "29ABCDE1234F1Z5",
+    "businessAddress": "124, 1st Cross, Indiranagar, Bengaluru",
+    "bankDetails": {
+      "accountNumber": "918237461928",
+      "ifscCode": "HDFC0001824",
+      "accountHolderName": "Ankit Panchal",
+      "bankName": "HDFC Bank",
+      "upiId": "skyline.pg@icici"
+    },
+    "passwordHash": "$2b$10$Q2rTvNWtxf/SAvluTJmXnOeRUxlCtee8OQEWQhHZIzefwjWrft7lW"
+  },
+  {
+    "id": "c92dde35-1ef0-489a-a8ae-386219126dbe",
+    "fullName": "Ankit Panchal",
+    "email": "owner_1789884270464@staysync.in",
+    "phone": "9891353190",
+    "role": "owner",
+    "businessName": "Skyline Co-Living & PG",
+    "avatarUrl": null,
+    "isOnboarded": true,
+    "createdAt": "2026-09-20T06:04:30.540Z",
+    "gstNumber": "29ABCDE1234F1Z5",
+    "businessAddress": "124, 1st Cross, Indiranagar, Bengaluru",
+    "bankDetails": {
+      "accountNumber": "918237461928",
+      "ifscCode": "HDFC0001824",
+      "accountHolderName": "Ankit Panchal",
+      "bankName": "HDFC Bank",
+      "upiId": "skyline.pg@icici"
+    },
+    "passwordHash": "$2b$10$TyUBY4zU4gB5j6cGd2Q6B.KdYuIpkXYjNGJABI12oolI7yI48tL5e"
+  },
+  {
+    "id": "c37d4e34-ed54-435b-9630-cc35857719b9",
+    "fullName": "John Doe",
+    "email": "john.doe@staysync.in",
+    "phone": "9812345678",
+    "role": "owner",
+    "businessName": "John's Luxury PG",
+    "avatarUrl": null,
+    "isOnboarded": true,
+    "createdAt": "2026-09-20T06:13:18.852Z",
+    "gstNumber": null,
+    "businessAddress": null,
+    "bankDetails": {
+      "accountNumber": null,
+      "ifscCode": null,
+      "accountHolderName": null,
+      "bankName": null,
+      "upiId": "john@upi"
+    },
+    "passwordHash": "$2b$10$FE.hfPqZzQYPnBvVx35/uesF03Il9oWdeU/yri3SQmL9brLhNaIPC"
+  }
+]

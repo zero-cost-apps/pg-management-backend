@@ -1,0 +1,20 @@
+[
+  {
+    "id": "dd6e7507-a8fd-4113-84b0-872d19ca4106",
+    "userId": "49db3b41-6044-47b7-9dfa-7bec00e5e6ec",
+    "identifier": "owner_1789884218381@staysync.in",
+    "otpHash": "c4cdd668f0a850ba6bd67e7d5d151d1b23c1b86d5f493b21e6a516d1cd33c067",
+    "createdAt": "2026-09-20T06:03:41.460Z",
+    "expiresAt": "2026-09-20T06:13:41.460Z",
+    "consumedAt": null
+  },
+  {
+    "id": "798c8910-9d1e-4670-aaea-ef420cdc2698",
+    "userId": "c92dde35-1ef0-489a-a8ae-386219126dbe",
+    "identifier": "owner_1789884270464@staysync.in",
+    "otpHash": "1de4b42a9a8ecdbb7c3480c69a0ba889f4cd86ba2301ab04297a5c15dc9c5568",
+    "createdAt": "2026-09-20T06:04:30.821Z",
+    "expiresAt": "2026-09-20T06:14:30.821Z",
+    "consumedAt": null
+  }
+]

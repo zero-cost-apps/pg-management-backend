@@ -1,0 +1,42 @@
+[
+  {
+    "id": "e184347e-6091-4410-937d-f0e52f89871f",
+    "userId": "49db3b41-6044-47b7-9dfa-7bec00e5e6ec",
+    "refreshTokenHash": "38075e7a75406a245a7832c372d5131ead7ba7fdb466a9b7e91913f70217f39b",
+    "createdAt": "2026-09-20T06:03:38.536Z",
+    "expiresAt": "2026-10-20T06:03:38.536Z",
+    "revokedAt": "2026-09-20T06:03:41.514Z"
+  },
+  {
+    "id": "89f3846b-6bfd-45bb-8384-df98de477f0c",
+    "userId": "49db3b41-6044-47b7-9dfa-7bec00e5e6ec",
+    "refreshTokenHash": "dcf464e6d79f95f7fe034ffe10be8f514970603bfab70ce6c97ba4936ad3554a",
+    "createdAt": "2026-09-20T06:03:41.515Z",
+    "expiresAt": "2026-10-20T06:03:41.515Z",
+    "revokedAt": null
+  },
+  {
+    "id": "c7546445-e199-4937-a6b8-01276c70e5eb",
+    "userId": "c92dde35-1ef0-489a-a8ae-386219126dbe",
+    "refreshTokenHash": "d3158d8bc5b8f15ff5db4e7a5cc46663612a59e63e56d5fe72351b359de12788",
+    "createdAt": "2026-09-20T06:04:30.542Z",
+    "expiresAt": "2026-10-20T06:04:30.542Z",
+    "revokedAt": "2026-09-20T06:04:30.835Z"
+  },
+  {
+    "id": "005ecc0d-b773-43e8-9969-b200fff1d177",
+    "userId": "c92dde35-1ef0-489a-a8ae-386219126dbe",
+    "refreshTokenHash": "8e4a0e331082544a64c1029bad4864f592230320dd783f5a4d1457d73f1110f6",
+    "createdAt": "2026-09-20T06:04:30.836Z",
+    "expiresAt": "2026-10-20T06:04:30.836Z",
+    "revokedAt": null
+  },
+  {
+    "id": "f5312faa-d048-4d62-ac91-db31c38b5918",
+    "userId": "c37d4e34-ed54-435b-9630-cc35857719b9",
+    "refreshTokenHash": "97d04eabf909d3c8421d1d5ab89e3c7b5aaf17d893b799d6353ea3d2caaf2048",
+    "createdAt": "2026-09-20T06:13:18.860Z",
+    "expiresAt": "2026-10-20T06:13:18.860Z",
+    "revokedAt": null
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "id": "389d0afd-02ea-4ca1-911e-5152fcd0e1a3",
+  "buildingId": "e4567cb7-0d3a-40d7-b663-7d76c15a9285",
+  "roomNumber": "201",
+  "floor": 2,
+  "roomTypeId": "9b315c7c-9c16-4463-ae02-af7b0d60cb4e",
+  "capacity": 2,
+  "baseRent": 15000,
+  "status": "vacant",
+  "primaryTenantId": null,
+  "maintenanceReason": null,
+  "hasAttachedBathroom": true,
+  "hasAirConditioner": true,
+  "hasBalcony": false,
+  "meterNumber": "MTR-SER-201",
+  "lastMeterReading": 210,
+  "lastMeterReadingDate": "2026-09-20"
+}

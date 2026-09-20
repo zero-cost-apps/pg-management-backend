@@ -1,0 +1,18 @@
+{
+  "id": "2073c6a0-3b38-40d7-81ab-5853d1c82a45",
+  "buildingId": "b823d04c-129d-44c0-8523-3607a81c3156",
+  "roomNumber": "202",
+  "floor": 2,
+  "roomTypeId": "0db39b99-b878-4158-8e5e-4437be1c9390",
+  "capacity": 2,
+  "baseRent": 8500,
+  "status": "vacant",
+  "primaryTenantId": null,
+  "maintenanceReason": null,
+  "hasAttachedBathroom": true,
+  "hasAirConditioner": true,
+  "hasBalcony": true,
+  "meterNumber": "MTR-STA-202",
+  "lastMeterReading": 220,
+  "lastMeterReadingDate": "2026-09-20"
+}

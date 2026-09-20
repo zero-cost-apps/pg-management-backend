@@ -1,0 +1,18 @@
+{
+  "id": "1f3e53ba-ace0-4a05-9e0f-0dc2d67ab8c7",
+  "buildingId": "e4567cb7-0d3a-40d7-b663-7d76c15a9285",
+  "roomNumber": "101",
+  "floor": 1,
+  "roomTypeId": "9b315c7c-9c16-4463-ae02-af7b0d60cb4e",
+  "capacity": 2,
+  "baseRent": 15000,
+  "status": "occupied",
+  "primaryTenantId": "5e605bbb-3436-42f5-9f3e-eacd7d650c58",
+  "maintenanceReason": null,
+  "hasAttachedBathroom": true,
+  "hasAirConditioner": true,
+  "hasBalcony": false,
+  "meterNumber": "MTR-SER-101",
+  "lastMeterReading": 110,
+  "lastMeterReadingDate": "2026-09-20"
+}
