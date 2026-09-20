@@ -208,5 +208,26 @@
       "upiId": "skyline.pg@icici"
     },
     "passwordHash": "$2b$10$H74WhKx3JaweU851Xn0j2u8vEJV8uRmpdcwIZCkoE9/050MTY/xaS"
+  },
+  {
+    "id": "a701a37d-d30f-4bad-8296-1894eafc65ee",
+    "fullName": "Ankit Kumar",
+    "email": "xyz@xyz.com",
+    "phone": "9999999998",
+    "role": "owner",
+    "businessName": "Ankit Kumar",
+    "avatarUrl": null,
+    "isOnboarded": true,
+    "createdAt": "2026-09-20T09:26:20.565Z",
+    "gstNumber": null,
+    "businessAddress": null,
+    "bankDetails": {
+      "accountNumber": null,
+      "ifscCode": null,
+      "accountHolderName": null,
+      "bankName": null,
+      "upiId": "skylinepg@oksbi"
+    },
+    "passwordHash": "$2b$10$pCPgBCkiZO2aSuRadbsii.MJ2K7Y.06HHOGbvxBL1e/bN4ytzo5kK"
   }
 ]

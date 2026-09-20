@@ -94,5 +94,29 @@
     "createdAt": "2026-09-20T09:02:47.524Z",
     "expiresAt": "2026-10-20T09:02:47.524Z",
     "revokedAt": null
+  },
+  {
+    "id": "0acd0ad8-741b-485c-ac02-caeabaa2276f",
+    "userId": "c37d4e34-ed54-435b-9630-cc35857719b9",
+    "refreshTokenHash": "bf2d91eb7982d5fb23273bc29430e08c3a993521e52d81f3e6530a500868260b",
+    "createdAt": "2026-09-20T09:21:31.890Z",
+    "expiresAt": "2026-10-20T09:21:31.890Z",
+    "revokedAt": null
+  },
+  {
+    "id": "d60ad667-279c-4600-b124-906c7a0c0148",
+    "userId": "c37d4e34-ed54-435b-9630-cc35857719b9",
+    "refreshTokenHash": "5829a7109762430d18cc048b3319470cffd388f74e6d42eb37ce1d6708a8ce61",
+    "createdAt": "2026-09-20T09:25:33.082Z",
+    "expiresAt": "2026-10-20T09:25:33.082Z",
+    "revokedAt": "2026-09-20T09:25:48.018Z"
+  },
+  {
+    "id": "c0231797-645c-4eec-a239-87594ec0dab0",
+    "userId": "a701a37d-d30f-4bad-8296-1894eafc65ee",
+    "refreshTokenHash": "fd717a85553096fd280e7348ba9dc42f140806f50b0c0b3d12fd0a1145994c25",
+    "createdAt": "2026-09-20T09:26:20.567Z",
+    "expiresAt": "2026-10-20T09:26:20.567Z",
+    "revokedAt": null
   }
 ]

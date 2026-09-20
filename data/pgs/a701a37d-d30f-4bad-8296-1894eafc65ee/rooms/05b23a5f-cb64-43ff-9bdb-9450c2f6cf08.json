@@ -1,0 +1,19 @@
+{
+  "id": "05b23a5f-cb64-43ff-9bdb-9450c2f6cf08",
+  "buildingId": "bc8191f8-1528-46d2-8744-3fbe5b358611",
+  "roomNumber": "103",
+  "floor": 1,
+  "roomTypeId": "e2a67588-d03f-4551-9006-c0d32091f7de",
+  "capacity": 2,
+  "baseRent": 8500,
+  "status": "vacant",
+  "primaryTenantId": null,
+  "maintenanceReason": null,
+  "hasAttachedBathroom": true,
+  "hasAirConditioner": true,
+  "hasBalcony": false,
+  "meterNumber": "MTR-STA-103",
+  "lastMeterReading": 130,
+  "lastMeterReadingDate": "2026-09-20",
+  "ownerId": "a701a37d-d30f-4bad-8296-1894eafc65ee"
+}
