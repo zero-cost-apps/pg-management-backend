@@ -37,6 +37,14 @@
     "refreshTokenHash": "97d04eabf909d3c8421d1d5ab89e3c7b5aaf17d893b799d6353ea3d2caaf2048",
     "createdAt": "2026-09-20T06:13:18.860Z",
     "expiresAt": "2026-10-20T06:13:18.860Z",
+    "revokedAt": "2026-09-20T06:34:57.479Z"
+  },
+  {
+    "id": "2b72753d-ac3d-48f6-87c1-bcd7750a43de",
+    "userId": "c37d4e34-ed54-435b-9630-cc35857719b9",
+    "refreshTokenHash": "bf31d6c89486b22849e990e8021504e2a0215dbecd39cd2113d0856289eb4ca9",
+    "createdAt": "2026-09-20T06:34:57.481Z",
+    "expiresAt": "2026-10-20T06:34:57.481Z",
     "revokedAt": null
   }
 ]
