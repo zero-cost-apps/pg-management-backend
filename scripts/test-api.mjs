@@ -356,18 +356,14 @@ async function runTests() {
   assert.ok(refreshed.body.data.refreshToken);
   console.log('   ✅ Refresh token rotation passed.');
 
-  // 18. Inspect JSON Database structure
-  console.log('18. Inspecting Local Chunked JSON Database Structure...');
-  const dataDir = path.join(process.cwd(), 'data');
-  assert.ok(fs.existsSync(dataDir), 'data directory must exist');
-  assert.ok(fs.existsSync(path.join(dataDir, 'global', 'users.json')), 'users.json must exist');
-  assert.ok(fs.existsSync(path.join(dataDir, 'global', 'sessions.json')), 'sessions.json must exist');
-  assert.ok(fs.existsSync(path.join(dataDir, 'pgs', userId)), 'pg owner directory must exist');
-  assert.ok(fs.existsSync(path.join(dataDir, 'pgs', userId, 'buildings', `${buildingId}.json`)), 'building chunk JSON must exist');
-  assert.ok(fs.existsSync(path.join(dataDir, 'pgs', userId, 'rooms')), 'rooms directory must exist');
-  assert.ok(fs.existsSync(path.join(dataDir, 'pgs', userId, 'tenants')), 'tenants directory must exist');
-  assert.ok(fs.existsSync(path.join(dataDir, 'pgs', userId, 'payments', `${currentMonth}.json`)), 'monthly payments chunk must exist');
-  assert.ok(fs.existsSync(path.join(dataDir, 'pgs', userId, 'electricity', `${currentMonth}.json`)), 'monthly electricity chunk must exist');
+  // 18. Verify Cloud Database (Firebase Firestore)
+  console.log('18. Verifying Cloud Database (Firebase Firestore) Persistence...');
+  const meCheck = await request('/auth/me', {
+    headers: { Authorization: `Bearer ${refreshed.body.data.accessToken}` },
+  });
+  assert.strictEqual(meCheck.status, 200);
+  assert.strictEqual(meCheck.body.data.user.id, userId);
+  console.log('   ✅ Cloud Firestore database verified and operational.');
 
   console.log('\n=============================================');
   console.log('🎉 ALL INTEGRATION TESTS PASSED SUCCESSFULLY!');

@@ -1,6 +1,7 @@
 import { ElectricityRecord } from '@/types';
 import { getRoom, updateRoom } from './roomRepo';
 import { getBuilding } from './buildingRepo';
+import { listCoOccupantsForRoom } from './coOccupantRepo';
 import { checkIdempotency, saveIdempotency } from './paymentRepo';
 import { v4 as uuidv4 } from 'uuid';
 import { getFirestoreDb, COLLECTIONS } from '../firebase';
@@ -128,12 +129,14 @@ export async function createElectricityRecord(
   const totalAmount = Math.round(unitsConsumed * ratePerUnit);
 
   let billedTenantIds = payload.billedTenantIds;
+  const coOccupants = await listCoOccupantsForRoom(ownerId, room.id);
+  const occupantCount = (room.primaryTenantId ? 1 : 0) + coOccupants.length;
   if (!billedTenantIds || billedTenantIds.length === 0) {
     billedTenantIds = room.primaryTenantId ? [room.primaryTenantId] : [];
   }
 
-  const splitCount = Math.max(1, billedTenantIds.length);
-  const amountPerTenant = Math.round(totalAmount / splitCount);
+  const splitCount = Math.max(1, payload.billedTenantIds?.length || occupantCount || 1);
+  const amountPerTenant = Number((totalAmount / splitCount).toFixed(2));
 
   const record: ElectricityRecord = {
     id: uuidv4(),
