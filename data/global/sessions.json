@@ -38,5 +38,21 @@
     "createdAt": "2026-09-20T07:25:06.472Z",
     "expiresAt": "2026-10-20T07:25:06.472Z",
     "revokedAt": null
+  },
+  {
+    "id": "aa25b5f2-7e32-466b-a18c-5c1413a6eb84",
+    "userId": "0314b1f2-1806-4fc8-9e65-a622296c8b4a",
+    "refreshTokenHash": "b27df9dfd1c1d0c60a2a887150d65828f6d656003dddd6a9b4b620edf4cb5d35",
+    "createdAt": "2026-09-20T07:38:46.132Z",
+    "expiresAt": "2026-10-20T07:38:46.132Z",
+    "revokedAt": "2026-09-20T07:38:48.375Z"
+  },
+  {
+    "id": "04a7800d-4078-4dc1-9a7e-0503f1226d20",
+    "userId": "0314b1f2-1806-4fc8-9e65-a622296c8b4a",
+    "refreshTokenHash": "ad0bf11722140533aead6cb188a123eccdc794314a67ba63a98f57b7d79d78af",
+    "createdAt": "2026-09-20T07:38:48.376Z",
+    "expiresAt": "2026-10-20T07:38:48.376Z",
+    "revokedAt": null
   }
 ]
