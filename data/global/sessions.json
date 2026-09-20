@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "id": "3b6d0e68-b5b5-41f6-9fdb-828abcfb0ad8",
+    "userId": "144dfca0-9290-41d9-8de2-4d1701defe12",
+    "refreshTokenHash": "24aa2baadb032169916a56de6ff6b08e18ad3150edd9dad2067fb9456f8bf36f",
+    "createdAt": "2026-09-20T07:18:03.251Z",
+    "expiresAt": "2026-10-20T07:18:03.251Z",
+    "revokedAt": null
+  },
+  {
+    "id": "a890b781-42c4-493d-9375-10091dedcdd9",
+    "userId": "711bc67d-3cb8-4e50-b92d-a3a5aaeca8a4",
+    "refreshTokenHash": "5e6c5722b6a63020ad78646433e2c567b9f1c7e69a9c32a6276362d19c54f8bb",
+    "createdAt": "2026-09-20T07:18:45.330Z",
+    "expiresAt": "2026-10-20T07:18:45.330Z",
+    "revokedAt": "2026-09-20T07:18:45.584Z"
+  },
+  {
+    "id": "311d422d-0aed-4ab5-8892-f19195371d5c",
+    "userId": "711bc67d-3cb8-4e50-b92d-a3a5aaeca8a4",
+    "refreshTokenHash": "37e5066ba547a1118107bb097ce54f42929b3a08a9c741f70c206147dc95a87f",
+    "createdAt": "2026-09-20T07:18:45.586Z",
+    "expiresAt": "2026-10-20T07:18:45.586Z",
+    "revokedAt": null
+  }
+]

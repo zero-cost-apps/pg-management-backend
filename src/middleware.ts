@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Idempotency-Key',
-};
+import { getCorsHeaders } from '@/lib/utils/cors';
 
 export function middleware(req: NextRequest) {
+  const origin = req.headers.get('origin');
+  const cors = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
     return new NextResponse(null, {
       status: 204,
-      headers: corsHeaders,
+      headers: cors,
     });
   }
 
   const response = NextResponse.next();
-  Object.entries(corsHeaders).forEach(([key, value]) => {
+  Object.entries(cors).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
   return response;

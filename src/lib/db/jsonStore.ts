@@ -28,9 +28,16 @@ export async function ensureDir(dirPath: string): Promise<void> {
 export async function readJson<T>(filePath: string, defaultValue: T): Promise<T> {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
+    if (!content || !content.trim()) {
+      return defaultValue;
+    }
     return JSON.parse(content) as T;
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return defaultValue;
+    }
+    if (err instanceof SyntaxError) {
+      console.warn(`[jsonStore] Warning: Malformed or empty JSON in ${filePath}, falling back to default value.`);
       return defaultValue;
     }
     throw err;

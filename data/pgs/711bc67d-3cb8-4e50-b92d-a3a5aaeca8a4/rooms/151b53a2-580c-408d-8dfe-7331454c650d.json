@@ -1,0 +1,18 @@
+{
+  "id": "151b53a2-580c-408d-8dfe-7331454c650d",
+  "buildingId": "e9034e9e-efbe-4973-8e5b-fa4289cc2e8c",
+  "roomNumber": "103",
+  "floor": 1,
+  "roomTypeId": "e8b61903-8268-4a19-8aad-22b01d8a2462",
+  "capacity": 2,
+  "baseRent": 15000,
+  "status": "vacant",
+  "primaryTenantId": null,
+  "maintenanceReason": null,
+  "hasAttachedBathroom": true,
+  "hasAirConditioner": true,
+  "hasBalcony": false,
+  "meterNumber": "MTR-SER-103",
+  "lastMeterReading": 130,
+  "lastMeterReadingDate": "2026-09-20"
+}

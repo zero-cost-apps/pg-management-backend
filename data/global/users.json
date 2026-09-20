@@ -61,5 +61,47 @@
       "upiId": "john@upi"
     },
     "passwordHash": "$2b$10$FE.hfPqZzQYPnBvVx35/uesF03Il9oWdeU/yri3SQmL9brLhNaIPC"
+  },
+  {
+    "id": "144dfca0-9290-41d9-8de2-4d1701defe12",
+    "fullName": "Ankit Panchal",
+    "email": "owner_1789888683143@staysync.in",
+    "phone": "9880556701",
+    "role": "owner",
+    "businessName": "Skyline Co-Living & PG",
+    "avatarUrl": null,
+    "isOnboarded": true,
+    "createdAt": "2026-09-20T07:18:03.249Z",
+    "gstNumber": "29ABCDE1234F1Z5",
+    "businessAddress": "124, 1st Cross, Indiranagar, Bengaluru",
+    "bankDetails": {
+      "accountNumber": "918237461928",
+      "ifscCode": "HDFC0001824",
+      "accountHolderName": "Ankit Panchal",
+      "bankName": "HDFC Bank",
+      "upiId": "skyline.pg@icici"
+    },
+    "passwordHash": "$2b$10$o1wBkZXjWHj3aWHANQS1POH2WJKv5acvdGJbJ2p8ef5UndWX8mvPG"
+  },
+  {
+    "id": "711bc67d-3cb8-4e50-b92d-a3a5aaeca8a4",
+    "fullName": "Ankit Panchal",
+    "email": "owner_1789888725257@staysync.in",
+    "phone": "9898355633",
+    "role": "owner",
+    "businessName": "Skyline Co-Living & PG",
+    "avatarUrl": null,
+    "isOnboarded": true,
+    "createdAt": "2026-09-20T07:18:45.329Z",
+    "gstNumber": "29ABCDE1234F1Z5",
+    "businessAddress": "124, 1st Cross, Indiranagar, Bengaluru",
+    "bankDetails": {
+      "accountNumber": "918237461928",
+      "ifscCode": "HDFC0001824",
+      "accountHolderName": "Ankit Panchal",
+      "bankName": "HDFC Bank",
+      "upiId": "skyline.pg@icici"
+    },
+    "passwordHash": "$2b$10$xqSQiexaqEHeNp/mJJuEcO9UL84wsioUmoWZvnzQHtMGZubedHS/S"
   }
 ]

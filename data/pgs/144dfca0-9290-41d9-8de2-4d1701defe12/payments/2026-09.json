@@ -1,0 +1,32 @@
+[
+  {
+    "id": "897d02af-bcab-4e3d-88d7-de4917a1d12d",
+    "receiptNumber": "RCP-202609-001",
+    "tenantId": "30e6bffd-3cab-4f9c-928c-b01ebe733d26",
+    "tenantName": "Rahul Sharma",
+    "buildingId": "e95ce4b4-f14a-48e5-aff2-b66137e19f90",
+    "buildingName": "Skyline Elite Residency",
+    "roomId": "d56810c9-6696-44a7-9ec9-6f3d10eaaff5",
+    "roomNumber": "301",
+    "billingMonth": "2026-09",
+    "billingPeriodStart": "2026-09-01",
+    "billingPeriodEnd": "2026-09-30",
+    "rentAmount": 16000,
+    "electricityAmount": 287.5,
+    "electricityUnits": 25,
+    "maintenanceCharges": 0,
+    "otherCharges": 0,
+    "discount": 0,
+    "totalPayable": 16287.5,
+    "amountPaid": 16287.5,
+    "balanceDue": 0,
+    "paymentDate": "2026-09-05",
+    "paymentMode": "upi",
+    "transactionReference": "UPI-TXN-123456",
+    "status": "paid",
+    "receivedBy": "Ankit Panchal",
+    "notes": null,
+    "createdAt": "2026-09-20T07:18:04.438Z",
+    "idempotencyKey": "idemp_pay_1789888684412"
+  }
+]

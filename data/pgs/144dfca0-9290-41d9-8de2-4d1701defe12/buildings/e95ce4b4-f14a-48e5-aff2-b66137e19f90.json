@@ -1,0 +1,31 @@
+{
+  "id": "e95ce4b4-f14a-48e5-aff2-b66137e19f90",
+  "ownerId": "144dfca0-9290-41d9-8de2-4d1701defe12",
+  "name": "Skyline Elite Residency",
+  "code": "SER",
+  "address": "Plot 42, 4th Main, Koramangala",
+  "city": "Bengaluru",
+  "totalFloors": 2,
+  "electricityRatePerUnit": 11.5,
+  "billingDueDay": 5,
+  "electricityBillingCycle": "monthly",
+  "managerName": "Ankit Panchal",
+  "managerPhone": "9880556701",
+  "upiId": "skyline@okhdfcbank",
+  "amenities": [
+    "High-Speed Wi-Fi",
+    "Attached Washroom",
+    "Air Conditioner (AC)"
+  ],
+  "roomTypes": [
+    {
+      "id": "f85cc022-822f-49d3-8032-7b27b30f8298",
+      "name": "Double Sharing",
+      "capacity": 2,
+      "baseRent": 15000,
+      "description": "Standard accommodation with attached bathroom"
+    }
+  ],
+  "rulesNotes": null,
+  "createdAt": "2026-09-20T07:18:03.320Z"
+}

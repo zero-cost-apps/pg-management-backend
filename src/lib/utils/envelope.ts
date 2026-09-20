@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ApiResponse, ApiErrorCode, PaginationMeta } from '@/types';
+import { getCorsHeaders } from './cors';
 
 export function generateRequestId(): string {
   const timestamp = Date.now().toString(36);
@@ -7,16 +8,11 @@ export function generateRequestId(): string {
   return `req_${timestamp}${random}`;
 }
 
-export const corsHeaders: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Idempotency-Key',
-};
-
 export function successResponse<T>(
   data: T,
   meta?: { pagination?: PaginationMeta; requestId?: string },
-  status: number = 200
+  status: number = 200,
+  origin?: string | null
 ): NextResponse<ApiResponse<T>> {
   const body: ApiResponse<T> = {
     success: true,
@@ -28,7 +24,7 @@ export function successResponse<T>(
   };
   return NextResponse.json(body, {
     status,
-    headers: corsHeaders,
+    headers: getCorsHeaders(origin),
   });
 }
 
@@ -37,7 +33,8 @@ export function errorResponse(
   message: string,
   fields?: Record<string, string>,
   status: number = 400,
-  requestId?: string
+  requestId?: string,
+  origin?: string | null
 ): NextResponse<ApiResponse<null>> {
   const body: ApiResponse<null> = {
     success: false,
@@ -52,6 +49,6 @@ export function errorResponse(
   };
   return NextResponse.json(body, {
     status,
-    headers: corsHeaders,
+    headers: getCorsHeaders(origin),
   });
 }
