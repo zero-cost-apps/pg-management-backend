@@ -8,8 +8,17 @@ import {
   deleteFile,
 } from '../jsonStore';
 import { listCoOccupantsForRoom } from './coOccupantRepo';
+import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listAllRooms(ownerId: string): Promise<Room[]> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.ROOMS)
+      .where('ownerId', '==', ownerId)
+      .get();
+    return snapshot.docs.map((doc: any) => doc.data() as Room);
+  }
   const dir = getRoomsDir(ownerId);
   return listJsonFiles<Room>(dir);
 }
@@ -37,9 +46,20 @@ export async function getRoom(
   ownerId: string,
   roomId: string
 ): Promise<Room | null> {
-  const filePath = getRoomFilePath(ownerId, roomId);
-  const room = await readJson<Room | null>(filePath, null);
-  if (!room) return null;
+  const db = getFirestoreDb();
+  let room: Room | null = null;
+
+  if (db) {
+    const doc = await db.collection(COLLECTIONS.ROOMS).doc(roomId).get();
+    if (!doc.exists) return null;
+    const data = doc.data() as Room;
+    if (data.ownerId !== ownerId) return null;
+    room = data;
+  } else {
+    const filePath = getRoomFilePath(ownerId, roomId);
+    room = await readJson<Room | null>(filePath, null);
+    if (!room) return null;
+  }
 
   const occupantCount = await computeOccupantCount(
     ownerId,
@@ -94,14 +114,28 @@ export async function listRooms(
 }
 
 export async function createRoom(ownerId: string, room: Room): Promise<Room> {
+  const db = getFirestoreDb();
+  const { occupantCount: _count, ...cleanRoom } = room;
+  const toSave = { ...cleanRoom, ownerId };
+
+  if (db) {
+    await db.collection(COLLECTIONS.ROOMS).doc(room.id).set(toSave);
+    const occupantCount = await computeOccupantCount(
+      ownerId,
+      room.id,
+      room.primaryTenantId
+    );
+    return { ...toSave, occupantCount };
+  }
+
   const filePath = getRoomFilePath(ownerId, room.id);
-  await writeJson(filePath, room);
+  await writeJson(filePath, toSave);
   const occupantCount = await computeOccupantCount(
     ownerId,
     room.id,
     room.primaryTenantId
   );
-  return { ...room, occupantCount };
+  return { ...toSave, occupantCount };
 }
 
 export async function updateRoom(
@@ -117,8 +151,20 @@ export async function updateRoom(
     ...updates,
     id: current.id,
     buildingId: current.buildingId,
+    ownerId,
   };
   delete updated.occupantCount;
+
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.ROOMS).doc(roomId).set(updated);
+    const occupantCount = await computeOccupantCount(
+      ownerId,
+      roomId,
+      updated.primaryTenantId
+    );
+    return { ...updated, occupantCount };
+  }
 
   const filePath = getRoomFilePath(ownerId, roomId);
   await writeJson(filePath, updated);
@@ -140,6 +186,12 @@ export async function deleteRoom(
 
   if (room.status !== 'vacant' || room.primaryTenantId) {
     return { success: false, conflictReason: 'ROOM_NOT_VACANT' };
+  }
+
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.ROOMS).doc(roomId).delete();
+    return { success: true };
   }
 
   const filePath = getRoomFilePath(ownerId, roomId);

@@ -5,6 +5,7 @@ import { getCoOccupant, updateCoOccupant } from './coOccupantRepo';
 import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function saveTenantDocument(
   ownerId: string,
@@ -22,19 +23,34 @@ export async function saveTenantDocument(
     return { success: false, error: 'Tenant not found.' };
   }
 
-  const uploadsDir = getUploadsDir(ownerId);
-  await ensureDir(uploadsDir);
-
   const docId = uuidv4();
   const originalName = file.name || 'document';
   const ext = path.extname(originalName) || '.pdf';
   const storageName = `${docId}${ext}`;
-  const diskPath = path.join(uploadsDir, storageName);
-
   const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(diskPath, buffer);
-
   const today = new Date().toISOString().split('T')[0];
+
+  const db = getFirestoreDb();
+  if (db) {
+    // Store binary file as base64 in Firestore documents collection
+    await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).set({
+      id: docId,
+      ownerId,
+      tenantId,
+      storageName,
+      fileName: originalName,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: buffer.length,
+      base64: buffer.toString('base64'),
+      createdAt: new Date().toISOString(),
+    });
+  } else {
+    const uploadsDir = getUploadsDir(ownerId);
+    await ensureDir(uploadsDir);
+    const diskPath = path.join(/*turbopackIgnore: true*/ uploadsDir, storageName);
+    await fs.writeFile(diskPath, buffer);
+  }
+
   const newDoc: TenantDocument = {
     id: docId,
     tenantId,
@@ -67,17 +83,31 @@ export async function saveCoOccupantAadhaar(
     return { success: false, error: 'Co-occupant not found.' };
   }
 
-  const uploadsDir = getUploadsDir(ownerId);
-  await ensureDir(uploadsDir);
-
   const docId = uuidv4();
   const originalName = file.name || 'aadhaar.pdf';
   const ext = path.extname(originalName) || '.pdf';
   const storageName = `${docId}${ext}`;
-  const diskPath = path.join(uploadsDir, storageName);
-
   const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(diskPath, buffer);
+
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).set({
+      id: docId,
+      ownerId,
+      coOccupantId,
+      storageName,
+      fileName: originalName,
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: buffer.length,
+      base64: buffer.toString('base64'),
+      createdAt: new Date().toISOString(),
+    });
+  } else {
+    const uploadsDir = getUploadsDir(ownerId);
+    await ensureDir(uploadsDir);
+    const diskPath = path.join(/*turbopackIgnore: true*/ uploadsDir, storageName);
+    await fs.writeFile(diskPath, buffer);
+  }
 
   const updated = await updateCoOccupant(ownerId, coOccupantId, {
     aadharDocName: originalName,
@@ -91,7 +121,23 @@ export async function saveCoOccupantAadhaar(
 export async function getDocumentFile(
   ownerId: string,
   docIdOrStoragePath: string
-): Promise<{ filePath: string; fileName: string; contentType: string } | null> {
+): Promise<{ filePath?: string; fileBuffer?: Buffer; fileName: string; contentType: string } | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const docId = docIdOrStoragePath.split('.')[0]!;
+    const doc = await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).get();
+    if (doc.exists) {
+      const data = doc.data() as any;
+      if (data.ownerId === ownerId && data.base64) {
+        return {
+          fileBuffer: Buffer.from(data.base64, 'base64'),
+          fileName: data.fileName || 'document',
+          contentType: data.contentType || 'application/octet-stream',
+        };
+      }
+    }
+  }
+
   const uploadsDir = getUploadsDir(ownerId);
   try {
     await ensureDir(uploadsDir);

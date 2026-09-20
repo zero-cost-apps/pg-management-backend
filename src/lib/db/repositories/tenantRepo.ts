@@ -10,8 +10,17 @@ import {
 import { getRoom, updateRoom } from './roomRepo';
 import { createCoOccupant, deleteCoOccupantsForRoom } from './coOccupantRepo';
 import { v4 as uuidv4 } from 'uuid';
+import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listAllTenants(ownerId: string): Promise<Tenant[]> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.TENANTS)
+      .where('ownerId', '==', ownerId)
+      .get();
+    return snapshot.docs.map((doc: any) => doc.data() as Tenant);
+  }
   const dir = getTenantsDir(ownerId);
   return listJsonFiles<Tenant>(dir);
 }
@@ -28,6 +37,14 @@ export async function getTenant(
   ownerId: string,
   tenantId: string
 ): Promise<Tenant | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const doc = await db.collection(COLLECTIONS.TENANTS).doc(tenantId).get();
+    if (!doc.exists) return null;
+    const data = doc.data() as Tenant & { ownerId?: string };
+    if (data.ownerId && data.ownerId !== ownerId) return null;
+    return data;
+  }
   const filePath = getTenantFilePath(ownerId, tenantId);
   return readJson<Tenant | null>(filePath, null);
 }
@@ -70,8 +87,16 @@ export async function listTenants(
 }
 
 export async function createTenant(ownerId: string, tenant: Tenant): Promise<Tenant> {
+  const db = getFirestoreDb();
+  const toSave = { ...tenant, ownerId };
+
+  if (db) {
+    await db.collection(COLLECTIONS.TENANTS).doc(tenant.id).set(toSave);
+    return tenant;
+  }
+
   const filePath = getTenantFilePath(ownerId, tenant.id);
-  await writeJson(filePath, tenant);
+  await writeJson(filePath, toSave);
   return tenant;
 }
 
@@ -92,7 +117,14 @@ export async function updateTenant(
     roomId: current.roomId,
     checkInDate: current.checkInDate,
     status: current.status,
-  };
+    ownerId,
+  } as any;
+
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updated);
+    return updated;
+  }
 
   const filePath = getTenantFilePath(ownerId, tenantId);
   await writeJson(filePath, updated);
@@ -100,6 +132,12 @@ export async function updateTenant(
 }
 
 export async function deleteTenant(ownerId: string, tenantId: string): Promise<boolean> {
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.TENANTS).doc(tenantId).delete();
+    return true;
+  }
+
   const filePath = getTenantFilePath(ownerId, tenantId);
   return deleteFile(filePath);
 }
@@ -251,7 +289,14 @@ export async function setTenantNotice(
     status: 'notice_period',
     noticeGivenDate: today,
     expectedCheckOutDate,
-  };
+    ownerId,
+  } as any;
+
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updated);
+    return { success: true, tenant: updated };
+  }
 
   await writeJson(getTenantFilePath(ownerId, tenantId), updated);
   return { success: true, tenant: updated };
@@ -275,9 +320,15 @@ export async function vacateTenant(
     status: 'vacated',
     expectedCheckOutDate: tenant.expectedCheckOutDate || today,
     depositStatus: refundDeposit ? 'refunded' : tenant.depositStatus,
-  };
+    ownerId,
+  } as any;
 
-  await writeJson(getTenantFilePath(ownerId, tenantId), updatedTenant);
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updatedTenant);
+  } else {
+    await writeJson(getTenantFilePath(ownerId, tenantId), updatedTenant);
+  }
 
   // Delete co-occupants for that room
   await deleteCoOccupantsForRoom(ownerId, tenant.roomId);

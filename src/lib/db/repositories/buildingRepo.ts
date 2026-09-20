@@ -11,10 +11,22 @@ import { listRoomsForBuilding, deleteRoom } from './roomRepo';
 import { listTenantsForBuilding, deleteTenant } from './tenantRepo';
 import { deletePaymentsForBuilding } from './paymentRepo';
 import { deleteElectricityForBuilding } from './electricityRepo';
+import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listBuildings(ownerId: string): Promise<Building[]> {
-  const dir = getBuildingsDir(ownerId);
-  const buildings = await listJsonFiles<Building>(dir);
+  const db = getFirestoreDb();
+  let buildings: Building[] = [];
+
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.BUILDINGS)
+      .where('ownerId', '==', ownerId)
+      .get();
+    buildings = snapshot.docs.map((doc: any) => doc.data() as Building);
+  } else {
+    const dir = getBuildingsDir(ownerId);
+    buildings = await listJsonFiles<Building>(dir);
+  }
 
   // Attach computed stats to each building
   const withStats: Building[] = [];
@@ -34,9 +46,20 @@ export async function getBuilding(
   ownerId: string,
   buildingId: string
 ): Promise<Building | null> {
-  const filePath = getBuildingFilePath(ownerId, buildingId);
-  const building = await readJson<Building | null>(filePath, null);
-  if (!building || building.ownerId !== ownerId) return null;
+  const db = getFirestoreDb();
+  let building: Building | null = null;
+
+  if (db) {
+    const doc = await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).get();
+    if (!doc.exists) return null;
+    const data = doc.data() as Building;
+    if (data.ownerId !== ownerId) return null;
+    building = data;
+  } else {
+    const filePath = getBuildingFilePath(ownerId, buildingId);
+    building = await readJson<Building | null>(filePath, null);
+    if (!building || building.ownerId !== ownerId) return null;
+  }
 
   const stats = await computeBuildingStats(ownerId, building.id);
   return { ...building, stats };
@@ -70,6 +93,14 @@ export async function createBuilding(
   ownerId: string,
   building: Building
 ): Promise<Building> {
+  const db = getFirestoreDb();
+  if (db) {
+    const { stats: _stats, ...cleanBuilding } = building;
+    await db.collection(COLLECTIONS.BUILDINGS).doc(building.id).set(cleanBuilding);
+    const stats = await computeBuildingStats(ownerId, building.id);
+    return { ...building, stats };
+  }
+
   const filePath = getBuildingFilePath(ownerId, building.id);
   await writeJson(filePath, building);
   const stats = await computeBuildingStats(ownerId, building.id);
@@ -92,6 +123,13 @@ export async function updateBuilding(
     ownerId: current.ownerId,
   };
   delete updated.stats;
+
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).set(updated);
+    const stats = await computeBuildingStats(ownerId, buildingId);
+    return { ...updated, stats };
+  }
 
   const filePath = getBuildingFilePath(ownerId, buildingId);
   await writeJson(filePath, updated);
@@ -132,6 +170,12 @@ export async function deleteBuilding(
   // Cascade delete payments and electricity
   await deletePaymentsForBuilding(ownerId, buildingId);
   await deleteElectricityForBuilding(ownerId, buildingId);
+
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).delete();
+    return { success: true };
+  }
 
   // Delete the building file itself
   const filePath = getBuildingFilePath(ownerId, buildingId);

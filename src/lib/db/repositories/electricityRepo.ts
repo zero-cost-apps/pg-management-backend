@@ -10,8 +10,18 @@ import { getRoom, updateRoom } from './roomRepo';
 import { getBuilding } from './buildingRepo';
 import { checkIdempotency, saveIdempotency } from './paymentRepo';
 import { v4 as uuidv4 } from 'uuid';
+import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listAllElectricity(ownerId: string): Promise<ElectricityRecord[]> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.ELECTRICITY)
+      .where('ownerId', '==', ownerId)
+      .get();
+    return snapshot.docs.map((d: any) => d.data() as ElectricityRecord);
+  }
+
   const dir = getElectricityDir(ownerId);
   const monthFiles = await listJsonFiles<ElectricityRecord[]>(dir);
   const all: ElectricityRecord[] = [];
@@ -28,6 +38,19 @@ export async function getElectricityForRoomAndMonth(
   roomId: string,
   month: string
 ): Promise<ElectricityRecord | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.ELECTRICITY)
+      .where('ownerId', '==', ownerId)
+      .where('roomId', '==', roomId)
+      .where('month', '==', month)
+      .limit(1)
+      .get();
+    if (snapshot.empty) return null;
+    return snapshot.docs[0].data() as ElectricityRecord;
+  }
+
   const filePath = getElectricityFilePath(ownerId, month);
   const records = await readJson<ElectricityRecord[]>(filePath, []);
   return records.find((r) => r.roomId === roomId) || null;
@@ -42,18 +65,37 @@ export async function listElectricity(
   }
 ): Promise<ElectricityRecord[]> {
   let records: ElectricityRecord[] = [];
-  if (filters?.month) {
-    const filePath = getElectricityFilePath(ownerId, filters.month);
-    records = await readJson<ElectricityRecord[]>(filePath, []);
-  } else {
-    records = await listAllElectricity(ownerId);
-  }
+  const db = getFirestoreDb();
 
-  if (filters?.buildingId) {
-    records = records.filter((r) => r.buildingId === filters.buildingId);
-  }
-  if (filters?.roomId) {
-    records = records.filter((r) => r.roomId === filters.roomId);
+  if (db) {
+    let query: any = db
+      .collection(COLLECTIONS.ELECTRICITY)
+      .where('ownerId', '==', ownerId);
+    if (filters?.month) {
+      query = query.where('month', '==', filters.month);
+    }
+    if (filters?.buildingId) {
+      query = query.where('buildingId', '==', filters.buildingId);
+    }
+    if (filters?.roomId) {
+      query = query.where('roomId', '==', filters.roomId);
+    }
+    const snapshot = await query.get();
+    records = snapshot.docs.map((d: any) => d.data() as ElectricityRecord);
+  } else {
+    if (filters?.month) {
+      const filePath = getElectricityFilePath(ownerId, filters.month);
+      records = await readJson<ElectricityRecord[]>(filePath, []);
+    } else {
+      records = await listAllElectricity(ownerId);
+    }
+
+    if (filters?.buildingId) {
+      records = records.filter((r) => r.buildingId === filters.buildingId);
+    }
+    if (filters?.roomId) {
+      records = records.filter((r) => r.roomId === filters.roomId);
+    }
   }
 
   records.sort(
@@ -156,10 +198,18 @@ export async function createElectricityRecord(
     idempotencyKey: idempotencyKey || null,
   };
 
-  const filePath = getElectricityFilePath(ownerId, payload.month);
-  const monthRecords = await readJson<ElectricityRecord[]>(filePath, []);
-  monthRecords.push(record);
-  await writeJson(filePath, monthRecords);
+  const db = getFirestoreDb();
+  if (db) {
+    await db
+      .collection(COLLECTIONS.ELECTRICITY)
+      .doc(record.id)
+      .set({ ...record, ownerId });
+  } else {
+    const filePath = getElectricityFilePath(ownerId, payload.month);
+    const monthRecords = await readJson<ElectricityRecord[]>(filePath, []);
+    monthRecords.push(record);
+    await writeJson(filePath, monthRecords);
+  }
 
   // Update room last meter reading
   const updatedRoom = await updateRoom(ownerId, room.id, {
@@ -178,6 +228,19 @@ export async function deleteElectricityForBuilding(
   ownerId: string,
   buildingId: string
 ): Promise<void> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.ELECTRICITY)
+      .where('ownerId', '==', ownerId)
+      .where('buildingId', '==', buildingId)
+      .get();
+    const batch = db.batch();
+    snapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
+    await batch.commit();
+    return;
+  }
+
   const dir = getElectricityDir(ownerId);
   const fs = await import('fs/promises');
   const path = await import('path');

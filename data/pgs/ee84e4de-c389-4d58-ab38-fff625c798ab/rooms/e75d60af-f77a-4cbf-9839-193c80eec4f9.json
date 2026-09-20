@@ -1,0 +1,19 @@
+{
+  "id": "e75d60af-f77a-4cbf-9839-193c80eec4f9",
+  "buildingId": "cb2a30fa-8152-4f6e-8f9c-4f7de05a7fee",
+  "roomNumber": "202",
+  "floor": 2,
+  "roomTypeId": "41281001-07ac-4452-9a59-06c532b5cfb6",
+  "capacity": 2,
+  "baseRent": 15000,
+  "status": "vacant",
+  "primaryTenantId": null,
+  "maintenanceReason": null,
+  "hasAttachedBathroom": true,
+  "hasAirConditioner": true,
+  "hasBalcony": true,
+  "meterNumber": "MTR-SER-202",
+  "lastMeterReading": 220,
+  "lastMeterReadingDate": "2026-09-20",
+  "ownerId": "ee84e4de-c389-4d58-ab38-fff625c798ab"
+}

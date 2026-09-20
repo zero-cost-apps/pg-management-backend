@@ -19,9 +19,15 @@ export async function GET(
       return errorResponse('NOT_FOUND', 'Document file not found.', undefined, 404);
     }
 
-    const buffer = await fs.readFile(fileInfo.filePath);
+    const buffer =
+      fileInfo.fileBuffer ||
+      (fileInfo.filePath ? await fs.readFile(fileInfo.filePath) : null);
 
-    return new NextResponse(buffer, {
+    if (!buffer) {
+      return errorResponse('NOT_FOUND', 'Document file not found.', undefined, 404);
+    }
+
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': fileInfo.contentType,

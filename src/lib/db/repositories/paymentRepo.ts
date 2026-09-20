@@ -12,10 +12,19 @@ import { getBuilding } from './buildingRepo';
 import { getRoom } from './roomRepo';
 import { getElectricityForRoomAndMonth } from './electricityRepo';
 import { v4 as uuidv4 } from 'uuid';
+import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listAllPayments(ownerId: string): Promise<RentPayment[]> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.PAYMENTS)
+      .where('ownerId', '==', ownerId)
+      .get();
+    return snapshot.docs.map((d: any) => d.data() as RentPayment);
+  }
+
   const dir = getPaymentsDir(ownerId);
-  // listJsonFiles in payments dir will read all month files e.g. "2026-09.json", each is an array of RentPayment
   const monthFiles = await listJsonFiles<RentPayment[]>(dir);
   const all: RentPayment[] = [];
   for (const arr of monthFiles) {
@@ -36,21 +45,44 @@ export async function listPayments(
   }
 ): Promise<RentPayment[]> {
   let payments: RentPayment[] = [];
-  if (filters?.billingMonth) {
-    const filePath = getPaymentsFilePath(ownerId, filters.billingMonth);
-    payments = await readJson<RentPayment[]>(filePath, []);
-  } else {
-    payments = await listAllPayments(ownerId);
-  }
+  const db = getFirestoreDb();
 
-  if (filters?.buildingId) {
-    payments = payments.filter((p) => p.buildingId === filters.buildingId);
-  }
-  if (filters?.tenantId) {
-    payments = payments.filter((p) => p.tenantId === filters.tenantId);
-  }
-  if (filters?.status) {
-    payments = payments.filter((p) => p.status === filters.status);
+  if (db) {
+    let query: any = db
+      .collection(COLLECTIONS.PAYMENTS)
+      .where('ownerId', '==', ownerId);
+
+    if (filters?.billingMonth) {
+      query = query.where('billingMonth', '==', filters.billingMonth);
+    }
+    if (filters?.buildingId) {
+      query = query.where('buildingId', '==', filters.buildingId);
+    }
+    if (filters?.tenantId) {
+      query = query.where('tenantId', '==', filters.tenantId);
+    }
+    if (filters?.status) {
+      query = query.where('status', '==', filters.status);
+    }
+    const snapshot = await query.get();
+    payments = snapshot.docs.map((d: any) => d.data() as RentPayment);
+  } else {
+    if (filters?.billingMonth) {
+      const filePath = getPaymentsFilePath(ownerId, filters.billingMonth);
+      payments = await readJson<RentPayment[]>(filePath, []);
+    } else {
+      payments = await listAllPayments(ownerId);
+    }
+
+    if (filters?.buildingId) {
+      payments = payments.filter((p) => p.buildingId === filters.buildingId);
+    }
+    if (filters?.tenantId) {
+      payments = payments.filter((p) => p.tenantId === filters.tenantId);
+    }
+    if (filters?.status) {
+      payments = payments.filter((p) => p.status === filters.status);
+    }
   }
 
   // Sort by createdAt desc
@@ -64,6 +96,15 @@ export async function getPayment(
   ownerId: string,
   paymentId: string
 ): Promise<RentPayment | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const doc = await db.collection(COLLECTIONS.PAYMENTS).doc(paymentId).get();
+    if (!doc.exists) return null;
+    const data = doc.data() as RentPayment & { ownerId?: string };
+    if (data.ownerId && data.ownerId !== ownerId) return null;
+    return data;
+  }
+
   const all = await listAllPayments(ownerId);
   return all.find((p) => p.id === paymentId) || null;
 }
@@ -72,6 +113,16 @@ export async function checkIdempotency(
   ownerId: string,
   key: string
 ): Promise<any | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const doc = await db
+      .collection(COLLECTIONS.IDEMPOTENCY)
+      .doc(`${ownerId}_${key}`)
+      .get();
+    if (!doc.exists) return null;
+    return doc.data()?.data || null;
+  }
+
   const filePath = getIdempotencyFilePath(ownerId);
   const cache = await readJson<Record<string, any>>(filePath, {});
   return cache[key] || null;
@@ -82,6 +133,20 @@ export async function saveIdempotency(
   key: string,
   data: any
 ): Promise<void> {
+  const db = getFirestoreDb();
+  if (db) {
+    await db
+      .collection(COLLECTIONS.IDEMPOTENCY)
+      .doc(`${ownerId}_${key}`)
+      .set({
+        ownerId,
+        key,
+        data,
+        createdAt: new Date().toISOString(),
+      });
+    return;
+  }
+
   const filePath = getIdempotencyFilePath(ownerId);
   const cache = await readJson<Record<string, any>>(filePath, {});
   cache[key] = data;
@@ -173,8 +238,7 @@ export async function createPayment(
       : 'pending';
 
   // Read current month payments to calculate next sequence
-  const filePath = getPaymentsFilePath(ownerId, payload.billingMonth);
-  const currentPayments = await readJson<RentPayment[]>(filePath, []);
+  const currentPayments = await listPayments(ownerId, { billingMonth: payload.billingMonth });
   const seq = String(currentPayments.length + 1).padStart(3, '0');
   const cleanMonth = payload.billingMonth.replace('-', '');
   const receiptNumber = `RCP-${cleanMonth}-${seq}`;
@@ -214,8 +278,15 @@ export async function createPayment(
     idempotencyKey: idempotencyKey || null,
   };
 
-  currentPayments.push(payment);
-  await writeJson(filePath, currentPayments);
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.PAYMENTS).doc(payment.id).set({ ...payment, ownerId });
+  } else {
+    const filePath = getPaymentsFilePath(ownerId, payload.billingMonth);
+    const fileRecords = await readJson<RentPayment[]>(filePath, []);
+    fileRecords.push(payment);
+    await writeJson(filePath, fileRecords);
+  }
 
   if (idempotencyKey) {
     await saveIdempotency(ownerId, idempotencyKey, payment);
@@ -311,9 +382,20 @@ export async function deletePaymentsForBuilding(
   ownerId: string,
   buildingId: string
 ): Promise<void> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.PAYMENTS)
+      .where('ownerId', '==', ownerId)
+      .where('buildingId', '==', buildingId)
+      .get();
+    const batch = db.batch();
+    snapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
+    await batch.commit();
+    return;
+  }
+
   const dir = getPaymentsDir(ownerId);
-  const monthFiles = await listJsonFiles<RentPayment[]>(dir);
-  // We can filter out payments belonging to buildingId across all month files
   const fs = await import('fs/promises');
   const path = await import('path');
   try {

@@ -122,6 +122,7 @@ export interface Room {
   lastMeterReading?: number;
   lastMeterReadingDate?: string | null;
   occupantCount?: number;
+  ownerId?: string;
 }
 
 export interface TenantDocument {

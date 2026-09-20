@@ -6,6 +6,7 @@ import {
   readJson,
   writeJson,
 } from '../jsonStore';
+import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export function sanitizeUser(stored: StoredUser): User {
   const { passwordHash: _hash, ...safeUser } = stored;
@@ -32,22 +33,58 @@ export function sanitizeUser(stored: StoredUser): User {
 }
 
 export async function getAllStoredUsers(): Promise<StoredUser[]> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db.collection(COLLECTIONS.USERS).get();
+    return snapshot.docs.map((doc: any) => doc.data() as StoredUser);
+  }
   return readJson<StoredUser[]>(getGlobalUsersPath(), []);
 }
 
 export async function findUserById(id: string): Promise<StoredUser | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const doc = await db.collection(COLLECTIONS.USERS).doc(id).get();
+    if (!doc.exists) return null;
+    return doc.data() as StoredUser;
+  }
   const users = await getAllStoredUsers();
   return users.find((u) => u.id === id) || null;
 }
 
 export async function findUserByEmail(email: string): Promise<StoredUser | null> {
-  const users = await getAllStoredUsers();
   const normalized = email.trim().toLowerCase();
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.USERS)
+      .where('email', '==', normalized)
+      .limit(1)
+      .get();
+    if (snapshot.empty) {
+      // In case email was saved with different casing
+      const all = await getAllStoredUsers();
+      return all.find((u) => u.email.toLowerCase() === normalized) || null;
+    }
+    return snapshot.docs[0].data() as StoredUser;
+  }
+  const users = await getAllStoredUsers();
   return users.find((u) => u.email.toLowerCase() === normalized) || null;
 }
 
 export async function findUserByPhone(phone: string): Promise<StoredUser | null> {
   const digits = phone.replace(/\D/g, '').slice(-10);
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db.collection(COLLECTIONS.USERS).get();
+    for (const doc of snapshot.docs) {
+      const u = doc.data() as StoredUser;
+      if (u.phone && u.phone.replace(/\D/g, '').slice(-10) === digits) {
+        return u;
+      }
+    }
+    return null;
+  }
   const users = await getAllStoredUsers();
   return (
     users.find((u) => {
@@ -66,6 +103,11 @@ export async function findUserByEmailOrPhone(identifier: string): Promise<Stored
 }
 
 export async function createUser(newUser: StoredUser): Promise<User> {
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.USERS).doc(newUser.id).set(newUser);
+    return sanitizeUser(newUser);
+  }
   const users = await getAllStoredUsers();
   users.push(newUser);
   await writeJson(getGlobalUsersPath(), users);
@@ -76,6 +118,23 @@ export async function updateUser(
   id: string,
   updates: Partial<StoredUser>
 ): Promise<User | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const docRef = db.collection(COLLECTIONS.USERS).doc(id);
+    const existing = await docRef.get();
+    if (!existing.exists) return null;
+    const current = existing.data() as StoredUser;
+    const updated: StoredUser = {
+      ...current,
+      ...updates,
+      bankDetails: updates.bankDetails
+        ? { ...current.bankDetails, ...updates.bankDetails }
+        : current.bankDetails,
+    };
+    await docRef.set(updated);
+    return sanitizeUser(updated);
+  }
+
   const users = await getAllStoredUsers();
   const index = users.findIndex((u) => u.id === id);
   if (index === -1) return null;
@@ -95,12 +154,20 @@ export async function updateUser(
 // ---------------- Sessions ----------------
 
 export async function getAllSessions(): Promise<Session[]> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db.collection(COLLECTIONS.SESSIONS).get();
+    return snapshot.docs.map((d: any) => d.data() as Session);
+  }
   return readJson<Session[]>(getGlobalSessionsPath(), []);
 }
 
-export async function createSession(
-  session: Session
-): Promise<Session> {
+export async function createSession(session: Session): Promise<Session> {
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.SESSIONS).doc(session.id).set(session);
+    return session;
+  }
   const sessions = await getAllSessions();
   sessions.push(session);
   await writeJson(getGlobalSessionsPath(), sessions);
@@ -110,6 +177,21 @@ export async function createSession(
 export async function findSessionByTokenHash(
   tokenHash: string
 ): Promise<Session | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.SESSIONS)
+      .where('refreshTokenHash', '==', tokenHash)
+      .limit(1)
+      .get();
+    if (snapshot.empty) return null;
+    const s = snapshot.docs[0].data() as Session;
+    if (s.revokedAt || new Date(s.expiresAt) <= new Date()) {
+      return null;
+    }
+    return s;
+  }
+
   const sessions = await getAllSessions();
   return (
     sessions.find(
@@ -119,6 +201,21 @@ export async function findSessionByTokenHash(
 }
 
 export async function revokeSession(tokenHash: string): Promise<void> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.SESSIONS)
+      .where('refreshTokenHash', '==', tokenHash)
+      .limit(1)
+      .get();
+    if (!snapshot.empty) {
+      await snapshot.docs[0].ref.update({
+        revokedAt: new Date().toISOString(),
+      });
+    }
+    return;
+  }
+
   const sessions = await getAllSessions();
   const index = sessions.findIndex((s) => s.refreshTokenHash === tokenHash);
   if (index !== -1) {
@@ -128,6 +225,24 @@ export async function revokeSession(tokenHash: string): Promise<void> {
 }
 
 export async function revokeAllUserSessions(userId: string): Promise<void> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.SESSIONS)
+      .where('userId', '==', userId)
+      .get();
+    const batch = db.batch();
+    const now = new Date().toISOString();
+    snapshot.docs.forEach((doc: any) => {
+      const data = doc.data() as Session;
+      if (!data.revokedAt) {
+        batch.update(doc.ref, { revokedAt: now });
+      }
+    });
+    await batch.commit();
+    return;
+  }
+
   const sessions = await getAllSessions();
   let changed = false;
   const now = new Date().toISOString();
@@ -145,6 +260,11 @@ export async function revokeAllUserSessions(userId: string): Promise<void> {
 // ---------------- Password OTPs ----------------
 
 export async function createPasswordOtp(otp: PasswordOtp): Promise<void> {
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.OTPS).doc(otp.id).set(otp);
+    return;
+  }
   const otps = await readJson<PasswordOtp[]>(getGlobalOtpsPath(), []);
   otps.push(otp);
   await writeJson(getGlobalOtpsPath(), otps);
@@ -154,6 +274,22 @@ export async function findValidOtp(
   userId: string,
   otpHash: string
 ): Promise<PasswordOtp | null> {
+  const db = getFirestoreDb();
+  if (db) {
+    const snapshot = await db
+      .collection(COLLECTIONS.OTPS)
+      .where('userId', '==', userId)
+      .where('otpHash', '==', otpHash)
+      .limit(1)
+      .get();
+    if (snapshot.empty) return null;
+    const o = snapshot.docs[0].data() as PasswordOtp;
+    if (o.consumedAt || new Date(o.expiresAt) <= new Date()) {
+      return null;
+    }
+    return o;
+  }
+
   const otps = await readJson<PasswordOtp[]>(getGlobalOtpsPath(), []);
   const now = new Date();
   const found = otps.find(
@@ -167,6 +303,14 @@ export async function findValidOtp(
 }
 
 export async function consumeOtp(otpId: string): Promise<void> {
+  const db = getFirestoreDb();
+  if (db) {
+    await db.collection(COLLECTIONS.OTPS).doc(otpId).update({
+      consumedAt: new Date().toISOString(),
+    });
+    return;
+  }
+
   const otps = await readJson<PasswordOtp[]>(getGlobalOtpsPath(), []);
   const index = otps.findIndex((o) => o.id === otpId);
   if (index !== -1) {
