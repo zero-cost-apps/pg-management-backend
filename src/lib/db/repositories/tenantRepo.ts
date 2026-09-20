@@ -1,12 +1,4 @@
 import { Tenant, TenantStatus, CoOccupant } from '@/types';
-import {
-  getTenantFilePath,
-  getTenantsDir,
-  listJsonFiles,
-  readJson,
-  writeJson,
-  deleteFile,
-} from '../jsonStore';
 import { getRoom, updateRoom } from './roomRepo';
 import { createCoOccupant, deleteCoOccupantsForRoom } from './coOccupantRepo';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,15 +6,11 @@ import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listAllTenants(ownerId: string): Promise<Tenant[]> {
   const db = getFirestoreDb();
-  if (db) {
-    const snapshot = await db
-      .collection(COLLECTIONS.TENANTS)
-      .where('ownerId', '==', ownerId)
-      .get();
-    return snapshot.docs.map((doc: any) => doc.data() as Tenant);
-  }
-  const dir = getTenantsDir(ownerId);
-  return listJsonFiles<Tenant>(dir);
+  const snapshot = await db
+    .collection(COLLECTIONS.TENANTS)
+    .where('ownerId', '==', ownerId)
+    .get();
+  return snapshot.docs.map((doc: any) => doc.data() as Tenant);
 }
 
 export async function listTenantsForBuilding(
@@ -38,15 +26,11 @@ export async function getTenant(
   tenantId: string
 ): Promise<Tenant | null> {
   const db = getFirestoreDb();
-  if (db) {
-    const doc = await db.collection(COLLECTIONS.TENANTS).doc(tenantId).get();
-    if (!doc.exists) return null;
-    const data = doc.data() as Tenant & { ownerId?: string };
-    if (data.ownerId && data.ownerId !== ownerId) return null;
-    return data;
-  }
-  const filePath = getTenantFilePath(ownerId, tenantId);
-  return readJson<Tenant | null>(filePath, null);
+  const doc = await db.collection(COLLECTIONS.TENANTS).doc(tenantId).get();
+  if (!doc.exists) return null;
+  const data = doc.data() as Tenant & { ownerId?: string };
+  if (data.ownerId && data.ownerId !== ownerId) return null;
+  return data;
 }
 
 export async function listTenants(
@@ -89,14 +73,7 @@ export async function listTenants(
 export async function createTenant(ownerId: string, tenant: Tenant): Promise<Tenant> {
   const db = getFirestoreDb();
   const toSave = { ...tenant, ownerId };
-
-  if (db) {
-    await db.collection(COLLECTIONS.TENANTS).doc(tenant.id).set(toSave);
-    return tenant;
-  }
-
-  const filePath = getTenantFilePath(ownerId, tenant.id);
-  await writeJson(filePath, toSave);
+  await db.collection(COLLECTIONS.TENANTS).doc(tenant.id).set(toSave);
   return tenant;
 }
 
@@ -121,25 +98,14 @@ export async function updateTenant(
   } as any;
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updated);
-    return updated;
-  }
-
-  const filePath = getTenantFilePath(ownerId, tenantId);
-  await writeJson(filePath, updated);
+  await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updated);
   return updated;
 }
 
 export async function deleteTenant(ownerId: string, tenantId: string): Promise<boolean> {
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.TENANTS).doc(tenantId).delete();
-    return true;
-  }
-
-  const filePath = getTenantFilePath(ownerId, tenantId);
-  return deleteFile(filePath);
+  await db.collection(COLLECTIONS.TENANTS).doc(tenantId).delete();
+  return true;
 }
 
 export interface CheckInPayload {
@@ -199,69 +165,57 @@ export async function checkInTenant(
     id: tenantId,
     buildingId: data.buildingId,
     roomId: data.roomId,
-    fullName: data.fullName,
-    phone: data.phone,
-    email: data.email || '',
+    fullName: data.fullName.trim(),
+    phone: data.phone.trim(),
+    email: data.email?.trim().toLowerCase() || `${data.phone.replace(/\D/g, '')}@tenant.staysync.in`,
     gender: data.gender || 'male',
-    dateOfBirth: null,
-    occupation: data.occupation || 'Software Professional',
-    workOrCollegeName: data.workOrCollegeName || '',
-    permanentAddress: data.permanentAddress || 'Bangalore, India',
-    emergencyContactName: data.emergencyContactName || 'Family',
-    emergencyContactRelation: data.emergencyContactRelation || 'Parent',
-    emergencyContactPhone: data.emergencyContactPhone || data.phone,
+    occupation: data.occupation || 'Private Employee',
+    workOrCollegeName: data.workOrCollegeName || null,
+    permanentAddress: data.permanentAddress || null,
+    emergencyContactName: data.emergencyContactName || null,
+    emergencyContactRelation: data.emergencyContactRelation || null,
+    emergencyContactPhone: data.emergencyContactPhone || null,
     checkInDate: data.checkInDate,
     expectedCheckOutDate: null,
-    noticeGivenDate: null,
-    status: 'active',
     monthlyRent: data.monthlyRent,
     securityDeposit: data.securityDeposit,
     depositStatus: data.depositStatus,
-    depositPaidAmount: data.depositStatus === 'paid' ? data.securityDeposit : 0,
-    documents: data.idProofNumber
-      ? [
-          {
-            id: uuidv4(),
-            tenantId,
-            type: 'aadhaar',
-            title: 'Aadhaar Identity Proof',
-            documentNumber: data.idProofNumber,
-            uploadDate: data.checkInDate,
-            status: 'pending',
-          },
-        ]
-      : [],
-    notes: null,
-  };
+    status: 'active',
+    documents: [],
+    ownerId,
+  } as any;
 
   await createTenant(ownerId, newTenant);
 
-  // Update room status
-  const updatedRoom = await updateRoom(ownerId, room.id, {
-    status: 'occupied',
-    primaryTenantId: tenantId,
-  });
-
-  // Create co-occupants
+  // Create Co-Occupants if provided
   const createdCoOccupants: CoOccupant[] = [];
   if (data.coOccupants && data.coOccupants.length > 0) {
     for (const co of data.coOccupants) {
-      const coOccupant: CoOccupant = {
-        id: uuidv4(),
-        roomId: data.roomId,
+      const coId = uuidv4();
+      const coRecord: CoOccupant = {
+        id: coId,
         tenantId,
-        fullName: co.fullName,
-        relationship: co.relationship,
-        phone: co.phone,
-        gender: co.gender,
-        checkInDate: data.checkInDate,
+        roomId: data.roomId,
+        fullName: co.fullName.trim(),
+        relationship: co.relationship || 'Friend / Roommate',
+        phone: co.phone?.trim() || '',
+        gender: co.gender || 'male',
         aadharNumber: co.aadharNumber || null,
+        aadharDocName: null,
+        hasAadhaarFile: false,
         createdAt: new Date().toISOString(),
-      };
-      await createCoOccupant(ownerId, coOccupant);
-      createdCoOccupants.push(coOccupant);
+        ownerId,
+      } as any;
+      const saved = await createCoOccupant(ownerId, coRecord);
+      createdCoOccupants.push(saved);
     }
   }
+
+  // Update room status to occupied and set primaryTenantId
+  const updatedRoom = await updateRoom(ownerId, data.roomId, {
+    status: 'occupied',
+    primaryTenantId: tenantId,
+  });
 
   return {
     success: true,
@@ -271,7 +225,7 @@ export async function checkInTenant(
   };
 }
 
-export async function setTenantNotice(
+export async function putTenantOnNotice(
   ownerId: string,
   tenantId: string,
   expectedCheckOutDate: string
@@ -293,14 +247,11 @@ export async function setTenantNotice(
   } as any;
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updated);
-    return { success: true, tenant: updated };
-  }
-
-  await writeJson(getTenantFilePath(ownerId, tenantId), updated);
+  await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updated);
   return { success: true, tenant: updated };
 }
+
+export const setTenantNotice = putTenantOnNotice;
 
 export async function vacateTenant(
   ownerId: string,
@@ -324,11 +275,7 @@ export async function vacateTenant(
   } as any;
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updatedTenant);
-  } else {
-    await writeJson(getTenantFilePath(ownerId, tenantId), updatedTenant);
-  }
+  await db.collection(COLLECTIONS.TENANTS).doc(tenantId).set(updatedTenant);
 
   // Delete co-occupants for that room
   await deleteCoOccupantsForRoom(ownerId, tenant.roomId);

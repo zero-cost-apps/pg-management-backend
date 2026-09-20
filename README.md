@@ -7,21 +7,14 @@ Production-ready Next.js backend for the StaySync PG Management platform. Implem
 ## Features
 
 - **Framework**: Next.js 16 (App Router) on Node 22 LTS with TypeScript.
-- **Chunked JSON Database**: Local file storage avoiding monolithic JSON files:
-  - Global records: `data/global/{users,sessions,otps}.json`
-  - Scoped by PG owner: `data/pgs/{ownerId}/`
-  - Dedicated file for each building: `data/pgs/{ownerId}/buildings/{buildingId}.json`
-  - Granular room files: `data/pgs/{ownerId}/rooms/{roomId}.json`
-  - Granular tenant files: `data/pgs/{ownerId}/tenants/{tenantId}.json`
-  - Granular co-occupant files: `data/pgs/{ownerId}/co_occupants/{id}.json`
-  - Monthly chunked payments: `data/pgs/{ownerId}/payments/{YYYY-MM}.json`
-  - Monthly chunked electricity logs: `data/pgs/{ownerId}/electricity/{YYYY-MM}.json`
-  - Uploaded KYC / Aadhaar documents: `data/pgs/{ownerId}/uploads/{docId}.pdf`
-- **Atomic File Writes**: Writes to temporary file and renames via `fs.rename` to prevent corruption. In-memory per-file write mutex prevents race conditions.
+- **Framework**: Next.js 16 (App Router) on Node 22 LTS with TypeScript.
+- **Database**: Google Cloud Firebase Firestore (Always Free Spark Plan):
+  - Collections: `users`, `sessions`, `otps`, `buildings`, `rooms`, `tenants`, `coOccupants`, `payments`, `electricity`, `documents`, `idempotency`.
+  - Zero credit card required, persistent across serverless and cold starts on Vercel.
 - **Authentication**: JWT access tokens (15-min TTL) with refresh token rotation (30-day TTL) and bcrypt password hashing.
 - **Onboarding Gate**: Enforces `403 NOT_ONBOARDED` on all protected resources until the property onboarding wizard is completed.
 - **Idempotency**: Supports `Idempotency-Key` header on payments and electricity meter readings.
-- **CORS Support**: Configured for Vite frontend at `http://localhost:5173`.
+- **CORS Support**: Configured for Vite frontend and production Vercel deployment.
 
 ---
 

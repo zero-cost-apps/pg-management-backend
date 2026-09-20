@@ -1,26 +1,14 @@
 import { Room, RoomStatus } from '@/types';
-import {
-  getRoomFilePath,
-  getRoomsDir,
-  listJsonFiles,
-  readJson,
-  writeJson,
-  deleteFile,
-} from '../jsonStore';
 import { listCoOccupantsForRoom } from './coOccupantRepo';
 import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listAllRooms(ownerId: string): Promise<Room[]> {
   const db = getFirestoreDb();
-  if (db) {
-    const snapshot = await db
-      .collection(COLLECTIONS.ROOMS)
-      .where('ownerId', '==', ownerId)
-      .get();
-    return snapshot.docs.map((doc: any) => doc.data() as Room);
-  }
-  const dir = getRoomsDir(ownerId);
-  return listJsonFiles<Room>(dir);
+  const snapshot = await db
+    .collection(COLLECTIONS.ROOMS)
+    .where('ownerId', '==', ownerId)
+    .get();
+  return snapshot.docs.map((doc: any) => doc.data() as Room);
 }
 
 export async function listRoomsForBuilding(
@@ -47,26 +35,17 @@ export async function getRoom(
   roomId: string
 ): Promise<Room | null> {
   const db = getFirestoreDb();
-  let room: Room | null = null;
-
-  if (db) {
-    const doc = await db.collection(COLLECTIONS.ROOMS).doc(roomId).get();
-    if (!doc.exists) return null;
-    const data = doc.data() as Room;
-    if (data.ownerId !== ownerId) return null;
-    room = data;
-  } else {
-    const filePath = getRoomFilePath(ownerId, roomId);
-    room = await readJson<Room | null>(filePath, null);
-    if (!room) return null;
-  }
+  const doc = await db.collection(COLLECTIONS.ROOMS).doc(roomId).get();
+  if (!doc.exists) return null;
+  const data = doc.data() as Room;
+  if (data.ownerId !== ownerId) return null;
 
   const occupantCount = await computeOccupantCount(
     ownerId,
-    room.id,
-    room.primaryTenantId
+    data.id,
+    data.primaryTenantId
   );
-  return { ...room, occupantCount };
+  return { ...data, occupantCount };
 }
 
 export async function listRooms(
@@ -118,18 +97,7 @@ export async function createRoom(ownerId: string, room: Room): Promise<Room> {
   const { occupantCount: _count, ...cleanRoom } = room;
   const toSave = { ...cleanRoom, ownerId };
 
-  if (db) {
-    await db.collection(COLLECTIONS.ROOMS).doc(room.id).set(toSave);
-    const occupantCount = await computeOccupantCount(
-      ownerId,
-      room.id,
-      room.primaryTenantId
-    );
-    return { ...toSave, occupantCount };
-  }
-
-  const filePath = getRoomFilePath(ownerId, room.id);
-  await writeJson(filePath, toSave);
+  await db.collection(COLLECTIONS.ROOMS).doc(room.id).set(toSave);
   const occupantCount = await computeOccupantCount(
     ownerId,
     room.id,
@@ -156,19 +124,7 @@ export async function updateRoom(
   delete updated.occupantCount;
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.ROOMS).doc(roomId).set(updated);
-    const occupantCount = await computeOccupantCount(
-      ownerId,
-      roomId,
-      updated.primaryTenantId
-    );
-    return { ...updated, occupantCount };
-  }
-
-  const filePath = getRoomFilePath(ownerId, roomId);
-  await writeJson(filePath, updated);
-
+  await db.collection(COLLECTIONS.ROOMS).doc(roomId).set(updated);
   const occupantCount = await computeOccupantCount(
     ownerId,
     roomId,
@@ -189,12 +145,6 @@ export async function deleteRoom(
   }
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.ROOMS).doc(roomId).delete();
-    return { success: true };
-  }
-
-  const filePath = getRoomFilePath(ownerId, roomId);
-  await deleteFile(filePath);
+  await db.collection(COLLECTIONS.ROOMS).doc(roomId).delete();
   return { success: true };
 }

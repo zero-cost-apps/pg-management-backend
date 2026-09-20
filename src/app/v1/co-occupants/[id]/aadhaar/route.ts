@@ -3,7 +3,6 @@ import { successResponse, errorResponse } from '@/lib/utils/envelope';
 import { authenticateRequest } from '@/lib/auth/authGuard';
 import { getCoOccupant } from '@/lib/db/repositories/coOccupantRepo';
 import { saveCoOccupantAadhaar, getDocumentFile } from '@/lib/db/repositories/documentRepo';
-import fs from 'fs/promises';
 
 export async function POST(
   req: NextRequest,
@@ -60,9 +59,7 @@ export async function GET(
       return errorResponse('NOT_FOUND', 'Aadhaar document file not found.', undefined, 404);
     }
 
-    const buffer =
-      fileInfo.fileBuffer ||
-      (fileInfo.filePath ? await fs.readFile(fileInfo.filePath) : null);
+    const buffer = fileInfo.fileBuffer;
 
     if (!buffer) {
       return errorResponse('NOT_FOUND', 'Aadhaar document file not found.', undefined, 404);

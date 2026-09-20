@@ -1,8 +1,6 @@
 import { TenantDocument, DocType } from '@/types';
-import { getUploadsDir, ensureDir } from '../jsonStore';
 import { getTenant, updateTenant } from './tenantRepo';
 import { getCoOccupant, updateCoOccupant } from './coOccupantRepo';
-import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { getFirestoreDb, COLLECTIONS } from '../firebase';
@@ -31,25 +29,18 @@ export async function saveTenantDocument(
   const today = new Date().toISOString().split('T')[0];
 
   const db = getFirestoreDb();
-  if (db) {
-    // Store binary file as base64 in Firestore documents collection
-    await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).set({
-      id: docId,
-      ownerId,
-      tenantId,
-      storageName,
-      fileName: originalName,
-      contentType: file.type || 'application/octet-stream',
-      sizeBytes: buffer.length,
-      base64: buffer.toString('base64'),
-      createdAt: new Date().toISOString(),
-    });
-  } else {
-    const uploadsDir = getUploadsDir(ownerId);
-    await ensureDir(uploadsDir);
-    const diskPath = path.join(/*turbopackIgnore: true*/ uploadsDir, storageName);
-    await fs.writeFile(diskPath, buffer);
-  }
+  // Store document in Firestore documents collection
+  await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).set({
+    id: docId,
+    ownerId,
+    tenantId,
+    storageName,
+    fileName: originalName,
+    contentType: file.type || 'application/octet-stream',
+    sizeBytes: buffer.length,
+    base64: buffer.toString('base64'),
+    createdAt: new Date().toISOString(),
+  });
 
   const newDoc: TenantDocument = {
     id: docId,
@@ -90,24 +81,17 @@ export async function saveCoOccupantAadhaar(
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).set({
-      id: docId,
-      ownerId,
-      coOccupantId,
-      storageName,
-      fileName: originalName,
-      contentType: file.type || 'application/octet-stream',
-      sizeBytes: buffer.length,
-      base64: buffer.toString('base64'),
-      createdAt: new Date().toISOString(),
-    });
-  } else {
-    const uploadsDir = getUploadsDir(ownerId);
-    await ensureDir(uploadsDir);
-    const diskPath = path.join(/*turbopackIgnore: true*/ uploadsDir, storageName);
-    await fs.writeFile(diskPath, buffer);
-  }
+  await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).set({
+    id: docId,
+    ownerId,
+    coOccupantId,
+    storageName,
+    fileName: originalName,
+    contentType: file.type || 'application/octet-stream',
+    sizeBytes: buffer.length,
+    base64: buffer.toString('base64'),
+    createdAt: new Date().toISOString(),
+  });
 
   const updated = await updateCoOccupant(ownerId, coOccupantId, {
     aadharDocName: originalName,
@@ -121,41 +105,20 @@ export async function saveCoOccupantAadhaar(
 export async function getDocumentFile(
   ownerId: string,
   docIdOrStoragePath: string
-): Promise<{ filePath?: string; fileBuffer?: Buffer; fileName: string; contentType: string } | null> {
+): Promise<{ fileBuffer: Buffer; fileName: string; contentType: string } | null> {
   const db = getFirestoreDb();
-  if (db) {
-    const docId = docIdOrStoragePath.split('.')[0]!;
-    const doc = await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).get();
-    if (doc.exists) {
-      const data = doc.data() as any;
-      if (data.ownerId === ownerId && data.base64) {
-        return {
-          fileBuffer: Buffer.from(data.base64, 'base64'),
-          fileName: data.fileName || 'document',
-          contentType: data.contentType || 'application/octet-stream',
-        };
-      }
+  const docId = docIdOrStoragePath.split('.')[0]!;
+  const doc = await db.collection(COLLECTIONS.DOCUMENTS).doc(docId).get();
+  if (doc.exists) {
+    const data = doc.data() as any;
+    if (data.ownerId === ownerId && data.base64) {
+      return {
+        fileBuffer: Buffer.from(data.base64, 'base64'),
+        fileName: data.fileName || 'document',
+        contentType: data.contentType || 'application/octet-stream',
+      };
     }
   }
 
-  const uploadsDir = getUploadsDir(ownerId);
-  try {
-    await ensureDir(uploadsDir);
-    const files = await fs.readdir(uploadsDir);
-    const match = files.find(
-      (f) => f === docIdOrStoragePath || f.startsWith(`${docIdOrStoragePath}.`)
-    );
-    if (!match) return null;
-
-    const fullPath = path.join(uploadsDir, match);
-    const ext = path.extname(match).toLowerCase();
-    let contentType = 'application/octet-stream';
-    if (ext === '.pdf') contentType = 'application/pdf';
-    else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
-    else if (ext === '.png') contentType = 'image/png';
-
-    return { filePath: fullPath, fileName: match, contentType };
-  } catch {
-    return null;
-  }
+  return null;
 }

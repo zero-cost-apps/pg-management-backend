@@ -1,12 +1,4 @@
 import { Building, BuildingStats } from '@/types';
-import {
-  getBuildingFilePath,
-  getBuildingsDir,
-  listJsonFiles,
-  readJson,
-  writeJson,
-  deleteFile,
-} from '../jsonStore';
 import { listRoomsForBuilding, deleteRoom } from './roomRepo';
 import { listTenantsForBuilding, deleteTenant } from './tenantRepo';
 import { deletePaymentsForBuilding } from './paymentRepo';
@@ -15,18 +7,12 @@ import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listBuildings(ownerId: string): Promise<Building[]> {
   const db = getFirestoreDb();
-  let buildings: Building[] = [];
+  const snapshot = await db
+    .collection(COLLECTIONS.BUILDINGS)
+    .where('ownerId', '==', ownerId)
+    .get();
 
-  if (db) {
-    const snapshot = await db
-      .collection(COLLECTIONS.BUILDINGS)
-      .where('ownerId', '==', ownerId)
-      .get();
-    buildings = snapshot.docs.map((doc: any) => doc.data() as Building);
-  } else {
-    const dir = getBuildingsDir(ownerId);
-    buildings = await listJsonFiles<Building>(dir);
-  }
+  const buildings: Building[] = snapshot.docs.map((doc: any) => doc.data() as Building);
 
   // Attach computed stats to each building
   const withStats: Building[] = [];
@@ -47,22 +33,13 @@ export async function getBuilding(
   buildingId: string
 ): Promise<Building | null> {
   const db = getFirestoreDb();
-  let building: Building | null = null;
+  const doc = await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).get();
+  if (!doc.exists) return null;
+  const data = doc.data() as Building;
+  if (data.ownerId !== ownerId) return null;
 
-  if (db) {
-    const doc = await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).get();
-    if (!doc.exists) return null;
-    const data = doc.data() as Building;
-    if (data.ownerId !== ownerId) return null;
-    building = data;
-  } else {
-    const filePath = getBuildingFilePath(ownerId, buildingId);
-    building = await readJson<Building | null>(filePath, null);
-    if (!building || building.ownerId !== ownerId) return null;
-  }
-
-  const stats = await computeBuildingStats(ownerId, building.id);
-  return { ...building, stats };
+  const stats = await computeBuildingStats(ownerId, data.id);
+  return { ...data, stats };
 }
 
 export async function computeBuildingStats(
@@ -94,17 +71,13 @@ export async function createBuilding(
   building: Building
 ): Promise<Building> {
   const db = getFirestoreDb();
-  if (db) {
-    const { stats: _stats, ...cleanBuilding } = building;
-    await db.collection(COLLECTIONS.BUILDINGS).doc(building.id).set(cleanBuilding);
-    const stats = await computeBuildingStats(ownerId, building.id);
-    return { ...building, stats };
-  }
-
-  const filePath = getBuildingFilePath(ownerId, building.id);
-  await writeJson(filePath, building);
+  const { stats: _stats, ...cleanBuilding } = building;
+  await db.collection(COLLECTIONS.BUILDINGS).doc(building.id).set({
+    ...cleanBuilding,
+    ownerId,
+  });
   const stats = await computeBuildingStats(ownerId, building.id);
-  return { ...building, stats };
+  return { ...building, ownerId, stats };
 }
 
 export async function updateBuilding(
@@ -125,15 +98,7 @@ export async function updateBuilding(
   delete updated.stats;
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).set(updated);
-    const stats = await computeBuildingStats(ownerId, buildingId);
-    return { ...updated, stats };
-  }
-
-  const filePath = getBuildingFilePath(ownerId, buildingId);
-  await writeJson(filePath, updated);
-
+  await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).set(updated);
   const stats = await computeBuildingStats(ownerId, buildingId);
   return { ...updated, stats };
 }
@@ -172,14 +137,7 @@ export async function deleteBuilding(
   await deleteElectricityForBuilding(ownerId, buildingId);
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).delete();
-    return { success: true };
-  }
-
-  // Delete the building file itself
-  const filePath = getBuildingFilePath(ownerId, buildingId);
-  await deleteFile(filePath);
+  await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).delete();
 
   return { success: true };
 }

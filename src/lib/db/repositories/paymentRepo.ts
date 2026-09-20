@@ -1,12 +1,4 @@
 import { RentPayment, PaymentMode, PaymentStatus } from '@/types';
-import {
-  getPaymentsDir,
-  getPaymentsFilePath,
-  getIdempotencyFilePath,
-  listJsonFiles,
-  readJson,
-  writeJson,
-} from '../jsonStore';
 import { getTenant } from './tenantRepo';
 import { getBuilding } from './buildingRepo';
 import { getRoom } from './roomRepo';
@@ -16,23 +8,11 @@ import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listAllPayments(ownerId: string): Promise<RentPayment[]> {
   const db = getFirestoreDb();
-  if (db) {
-    const snapshot = await db
-      .collection(COLLECTIONS.PAYMENTS)
-      .where('ownerId', '==', ownerId)
-      .get();
-    return snapshot.docs.map((d: any) => d.data() as RentPayment);
-  }
-
-  const dir = getPaymentsDir(ownerId);
-  const monthFiles = await listJsonFiles<RentPayment[]>(dir);
-  const all: RentPayment[] = [];
-  for (const arr of monthFiles) {
-    if (Array.isArray(arr)) {
-      all.push(...arr);
-    }
-  }
-  return all;
+  const snapshot = await db
+    .collection(COLLECTIONS.PAYMENTS)
+    .where('ownerId', '==', ownerId)
+    .get();
+  return snapshot.docs.map((d: any) => d.data() as RentPayment);
 }
 
 export async function listPayments(
@@ -44,46 +24,26 @@ export async function listPayments(
     status?: PaymentStatus;
   }
 ): Promise<RentPayment[]> {
-  let payments: RentPayment[] = [];
   const db = getFirestoreDb();
+  let query: any = db
+    .collection(COLLECTIONS.PAYMENTS)
+    .where('ownerId', '==', ownerId);
 
-  if (db) {
-    let query: any = db
-      .collection(COLLECTIONS.PAYMENTS)
-      .where('ownerId', '==', ownerId);
-
-    if (filters?.billingMonth) {
-      query = query.where('billingMonth', '==', filters.billingMonth);
-    }
-    if (filters?.buildingId) {
-      query = query.where('buildingId', '==', filters.buildingId);
-    }
-    if (filters?.tenantId) {
-      query = query.where('tenantId', '==', filters.tenantId);
-    }
-    if (filters?.status) {
-      query = query.where('status', '==', filters.status);
-    }
-    const snapshot = await query.get();
-    payments = snapshot.docs.map((d: any) => d.data() as RentPayment);
-  } else {
-    if (filters?.billingMonth) {
-      const filePath = getPaymentsFilePath(ownerId, filters.billingMonth);
-      payments = await readJson<RentPayment[]>(filePath, []);
-    } else {
-      payments = await listAllPayments(ownerId);
-    }
-
-    if (filters?.buildingId) {
-      payments = payments.filter((p) => p.buildingId === filters.buildingId);
-    }
-    if (filters?.tenantId) {
-      payments = payments.filter((p) => p.tenantId === filters.tenantId);
-    }
-    if (filters?.status) {
-      payments = payments.filter((p) => p.status === filters.status);
-    }
+  if (filters?.billingMonth) {
+    query = query.where('billingMonth', '==', filters.billingMonth);
   }
+  if (filters?.buildingId) {
+    query = query.where('buildingId', '==', filters.buildingId);
+  }
+  if (filters?.tenantId) {
+    query = query.where('tenantId', '==', filters.tenantId);
+  }
+  if (filters?.status) {
+    query = query.where('status', '==', filters.status);
+  }
+
+  const snapshot = await query.get();
+  const payments: RentPayment[] = snapshot.docs.map((d: any) => d.data() as RentPayment);
 
   // Sort by createdAt desc
   payments.sort(
@@ -97,16 +57,11 @@ export async function getPayment(
   paymentId: string
 ): Promise<RentPayment | null> {
   const db = getFirestoreDb();
-  if (db) {
-    const doc = await db.collection(COLLECTIONS.PAYMENTS).doc(paymentId).get();
-    if (!doc.exists) return null;
-    const data = doc.data() as RentPayment & { ownerId?: string };
-    if (data.ownerId && data.ownerId !== ownerId) return null;
-    return data;
-  }
-
-  const all = await listAllPayments(ownerId);
-  return all.find((p) => p.id === paymentId) || null;
+  const doc = await db.collection(COLLECTIONS.PAYMENTS).doc(paymentId).get();
+  if (!doc.exists) return null;
+  const data = doc.data() as RentPayment & { ownerId?: string };
+  if (data.ownerId && data.ownerId !== ownerId) return null;
+  return data;
 }
 
 export async function checkIdempotency(
@@ -114,18 +69,12 @@ export async function checkIdempotency(
   key: string
 ): Promise<any | null> {
   const db = getFirestoreDb();
-  if (db) {
-    const doc = await db
-      .collection(COLLECTIONS.IDEMPOTENCY)
-      .doc(`${ownerId}_${key}`)
-      .get();
-    if (!doc.exists) return null;
-    return doc.data()?.data || null;
-  }
-
-  const filePath = getIdempotencyFilePath(ownerId);
-  const cache = await readJson<Record<string, any>>(filePath, {});
-  return cache[key] || null;
+  const doc = await db
+    .collection(COLLECTIONS.IDEMPOTENCY)
+    .doc(`${ownerId}_${key}`)
+    .get();
+  if (!doc.exists) return null;
+  return doc.data()?.data || null;
 }
 
 export async function saveIdempotency(
@@ -134,23 +83,15 @@ export async function saveIdempotency(
   data: any
 ): Promise<void> {
   const db = getFirestoreDb();
-  if (db) {
-    await db
-      .collection(COLLECTIONS.IDEMPOTENCY)
-      .doc(`${ownerId}_${key}`)
-      .set({
-        ownerId,
-        key,
-        data,
-        createdAt: new Date().toISOString(),
-      });
-    return;
-  }
-
-  const filePath = getIdempotencyFilePath(ownerId);
-  const cache = await readJson<Record<string, any>>(filePath, {});
-  cache[key] = data;
-  await writeJson(filePath, cache);
+  await db
+    .collection(COLLECTIONS.IDEMPOTENCY)
+    .doc(`${ownerId}_${key}`)
+    .set({
+      ownerId,
+      key,
+      data,
+      createdAt: new Date().toISOString(),
+    });
 }
 
 function getMonthDates(month: string): { start: string; end: string } {
@@ -250,18 +191,18 @@ export async function createPayment(
   const payment: RentPayment = {
     id: uuidv4(),
     receiptNumber,
-    tenantId: tenant.id,
-    tenantName: tenant.fullName,
     buildingId: tenant.buildingId,
-    buildingName: building?.name || 'Property',
+    buildingName: building?.name || 'Building',
     roomId: tenant.roomId,
     roomNumber: room?.roomNumber || 'Room',
+    tenantId: tenant.id,
+    tenantName: tenant.fullName,
     billingMonth: payload.billingMonth,
     billingPeriodStart,
     billingPeriodEnd,
     rentAmount,
     electricityAmount,
-    electricityUnits,
+    electricityUnits: electricityUnits ?? undefined,
     maintenanceCharges,
     otherCharges,
     discount,
@@ -279,14 +220,7 @@ export async function createPayment(
   };
 
   const db = getFirestoreDb();
-  if (db) {
-    await db.collection(COLLECTIONS.PAYMENTS).doc(payment.id).set({ ...payment, ownerId });
-  } else {
-    const filePath = getPaymentsFilePath(ownerId, payload.billingMonth);
-    const fileRecords = await readJson<RentPayment[]>(filePath, []);
-    fileRecords.push(payment);
-    await writeJson(filePath, fileRecords);
-  }
+  await db.collection(COLLECTIONS.PAYMENTS).doc(payment.id).set({ ...payment, ownerId });
 
   if (idempotencyKey) {
     await saveIdempotency(ownerId, idempotencyKey, payment);
@@ -348,24 +282,24 @@ export async function calculateTenantDues(
     tenantId,
     billingMonth,
   });
-  const alreadyPaid = monthPayments.reduce((sum, p) => sum + p.amountPaid, 0);
 
-  const monthlyRent = tenant.monthlyRent;
-  const totalPayable = monthlyRent + electricityShare;
+  const alreadyPaid = monthPayments.reduce((acc, p) => acc + p.amountPaid, 0);
+  const totalPayable = tenant.monthlyRent + electricityShare;
   const balanceDue = Math.max(0, totalPayable - alreadyPaid);
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const today = new Date(todayStr).getTime();
-  const dueTime = new Date(dueDate).getTime();
-  const isOverdue = today > dueTime && balanceDue > 0;
-  const daysOverdue = isOverdue
-    ? Math.floor((today - dueTime) / (1000 * 60 * 60 * 24))
-    : 0;
+  const isOverdue = balanceDue > 0 && todayStr > dueDate;
+  let daysOverdue = 0;
+  if (isOverdue) {
+    const dueTime = new Date(dueDate).getTime();
+    const nowTime = new Date(todayStr).getTime();
+    daysOverdue = Math.max(0, Math.floor((nowTime - dueTime) / (1000 * 60 * 60 * 24)));
+  }
 
   return {
-    tenantId: tenant.id,
+    tenantId,
     billingMonth,
-    monthlyRent,
+    monthlyRent: tenant.monthlyRent,
     electricityShare,
     electricityUnits,
     electricityRecordId,
@@ -383,30 +317,12 @@ export async function deletePaymentsForBuilding(
   buildingId: string
 ): Promise<void> {
   const db = getFirestoreDb();
-  if (db) {
-    const snapshot = await db
-      .collection(COLLECTIONS.PAYMENTS)
-      .where('ownerId', '==', ownerId)
-      .where('buildingId', '==', buildingId)
-      .get();
-    const batch = db.batch();
-    snapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
-    await batch.commit();
-    return;
-  }
-
-  const dir = getPaymentsDir(ownerId);
-  const fs = await import('fs/promises');
-  const path = await import('path');
-  try {
-    const entries = await fs.readdir(dir);
-    for (const name of entries) {
-      if (name.endsWith('.json')) {
-        const p = path.join(dir, name);
-        const payments = await readJson<RentPayment[]>(p, []);
-        const filtered = payments.filter((item) => item.buildingId !== buildingId);
-        await writeJson(p, filtered);
-      }
-    }
-  } catch {}
+  const snapshot = await db
+    .collection(COLLECTIONS.PAYMENTS)
+    .where('ownerId', '==', ownerId)
+    .where('buildingId', '==', buildingId)
+    .get();
+  const batch = db.batch();
+  snapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
+  await batch.commit();
 }

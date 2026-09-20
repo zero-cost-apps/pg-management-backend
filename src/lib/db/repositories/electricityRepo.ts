@@ -1,11 +1,4 @@
 import { ElectricityRecord } from '@/types';
-import {
-  getElectricityDir,
-  getElectricityFilePath,
-  listJsonFiles,
-  readJson,
-  writeJson,
-} from '../jsonStore';
 import { getRoom, updateRoom } from './roomRepo';
 import { getBuilding } from './buildingRepo';
 import { checkIdempotency, saveIdempotency } from './paymentRepo';
@@ -14,23 +7,11 @@ import { getFirestoreDb, COLLECTIONS } from '../firebase';
 
 export async function listAllElectricity(ownerId: string): Promise<ElectricityRecord[]> {
   const db = getFirestoreDb();
-  if (db) {
-    const snapshot = await db
-      .collection(COLLECTIONS.ELECTRICITY)
-      .where('ownerId', '==', ownerId)
-      .get();
-    return snapshot.docs.map((d: any) => d.data() as ElectricityRecord);
-  }
-
-  const dir = getElectricityDir(ownerId);
-  const monthFiles = await listJsonFiles<ElectricityRecord[]>(dir);
-  const all: ElectricityRecord[] = [];
-  for (const arr of monthFiles) {
-    if (Array.isArray(arr)) {
-      all.push(...arr);
-    }
-  }
-  return all;
+  const snapshot = await db
+    .collection(COLLECTIONS.ELECTRICITY)
+    .where('ownerId', '==', ownerId)
+    .get();
+  return snapshot.docs.map((d: any) => d.data() as ElectricityRecord);
 }
 
 export async function getElectricityForRoomAndMonth(
@@ -39,21 +20,15 @@ export async function getElectricityForRoomAndMonth(
   month: string
 ): Promise<ElectricityRecord | null> {
   const db = getFirestoreDb();
-  if (db) {
-    const snapshot = await db
-      .collection(COLLECTIONS.ELECTRICITY)
-      .where('ownerId', '==', ownerId)
-      .where('roomId', '==', roomId)
-      .where('month', '==', month)
-      .limit(1)
-      .get();
-    if (snapshot.empty) return null;
-    return snapshot.docs[0].data() as ElectricityRecord;
-  }
-
-  const filePath = getElectricityFilePath(ownerId, month);
-  const records = await readJson<ElectricityRecord[]>(filePath, []);
-  return records.find((r) => r.roomId === roomId) || null;
+  const snapshot = await db
+    .collection(COLLECTIONS.ELECTRICITY)
+    .where('ownerId', '==', ownerId)
+    .where('roomId', '==', roomId)
+    .where('month', '==', month)
+    .limit(1)
+    .get();
+  if (snapshot.empty) return null;
+  return snapshot.docs[0].data() as ElectricityRecord;
 }
 
 export async function listElectricity(
@@ -64,43 +39,30 @@ export async function listElectricity(
     month?: string;
   }
 ): Promise<ElectricityRecord[]> {
-  let records: ElectricityRecord[] = [];
   const db = getFirestoreDb();
+  let query: any = db
+    .collection(COLLECTIONS.ELECTRICITY)
+    .where('ownerId', '==', ownerId);
 
-  if (db) {
-    let query: any = db
-      .collection(COLLECTIONS.ELECTRICITY)
-      .where('ownerId', '==', ownerId);
-    if (filters?.month) {
-      query = query.where('month', '==', filters.month);
-    }
-    if (filters?.buildingId) {
-      query = query.where('buildingId', '==', filters.buildingId);
-    }
-    if (filters?.roomId) {
-      query = query.where('roomId', '==', filters.roomId);
-    }
-    const snapshot = await query.get();
-    records = snapshot.docs.map((d: any) => d.data() as ElectricityRecord);
-  } else {
-    if (filters?.month) {
-      const filePath = getElectricityFilePath(ownerId, filters.month);
-      records = await readJson<ElectricityRecord[]>(filePath, []);
-    } else {
-      records = await listAllElectricity(ownerId);
-    }
-
-    if (filters?.buildingId) {
-      records = records.filter((r) => r.buildingId === filters.buildingId);
-    }
-    if (filters?.roomId) {
-      records = records.filter((r) => r.roomId === filters.roomId);
-    }
+  if (filters?.month) {
+    query = query.where('month', '==', filters.month);
+  }
+  if (filters?.buildingId) {
+    query = query.where('buildingId', '==', filters.buildingId);
+  }
+  if (filters?.roomId) {
+    query = query.where('roomId', '==', filters.roomId);
   }
 
-  records.sort(
-    (a, b) => new Date(b.readingDate).getTime() - new Date(a.readingDate).getTime()
-  );
+  const snapshot = await query.get();
+  const records: ElectricityRecord[] = snapshot.docs.map((d: any) => d.data() as ElectricityRecord);
+
+  // Sort by month desc, roomNumber asc
+  records.sort((a, b) => {
+    if (a.month !== b.month) return b.month.localeCompare(a.month);
+    return a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true });
+  });
+
   return records;
 }
 
@@ -108,10 +70,9 @@ export interface CreateElectricityPayload {
   roomId: string;
   month: string;
   readingDate: string;
-  previousReading?: number;
   currentReading: number;
   ratePerUnit?: number;
-  allowDecrease?: boolean;
+  billedTenantIds?: string[];
   notes?: string | null;
 }
 
@@ -121,13 +82,16 @@ export async function createElectricityRecord(
   idempotencyKey?: string | null
 ): Promise<
   | { success: true; record: ElectricityRecord; room: any }
-  | { success: false; code: 'READING_EXISTS' | 'INVALID_READING' | 'ROOM_NOT_FOUND'; message: string }
+  | {
+      success: false;
+      code: 'ROOM_NOT_FOUND' | 'INVALID_READING' | 'READING_EXISTS' | 'ALREADY_BILLED';
+      message: string;
+    }
 > {
   if (idempotencyKey) {
     const cached = await checkIdempotency(ownerId, idempotencyKey);
     if (cached) {
-      const room = await getRoom(ownerId, payload.roomId);
-      return { success: true, record: cached, room };
+      return { success: true, record: cached, room: null };
     }
   }
 
@@ -145,36 +109,31 @@ export async function createElectricityRecord(
     return {
       success: false,
       code: 'READING_EXISTS',
-      message: `Electricity reading already recorded for room ${room.roomNumber} in ${payload.month}.`,
+      message: `Electricity reading already recorded for Room ${room.roomNumber} in ${payload.month}.`,
+    };
+  }
+
+  const previousReading = room.lastMeterReading ?? 0;
+  if (payload.currentReading < previousReading) {
+    return {
+      success: false,
+      code: 'INVALID_READING',
+      message: `Current reading (${payload.currentReading}) cannot be less than previous reading (${previousReading}).`,
     };
   }
 
   const building = await getBuilding(ownerId, room.buildingId);
-  const previousReading =
-    payload.previousReading !== undefined
-      ? payload.previousReading
-      : room.lastMeterReading || 0;
+  const ratePerUnit = payload.ratePerUnit ?? building?.electricityRatePerUnit ?? 10;
+  const unitsConsumed = payload.currentReading - previousReading;
+  const totalAmount = Math.round(unitsConsumed * ratePerUnit);
 
-  if (payload.currentReading < previousReading && !payload.allowDecrease) {
-    return {
-      success: false,
-      code: 'INVALID_READING',
-      message: `Current reading (${payload.currentReading}) is less than previous reading (${previousReading}). Provide allowDecrease: true to confirm.`,
-    };
+  let billedTenantIds = payload.billedTenantIds;
+  if (!billedTenantIds || billedTenantIds.length === 0) {
+    billedTenantIds = room.primaryTenantId ? [room.primaryTenantId] : [];
   }
 
-  const ratePerUnit =
-    payload.ratePerUnit !== undefined
-      ? payload.ratePerUnit
-      : building?.electricityRatePerUnit || 10;
-
-  const unitsConsumed = Math.max(0, payload.currentReading - previousReading);
-  const totalAmount = Math.round(unitsConsumed * ratePerUnit * 100) / 100;
-
-  // Split calculation: count of occupants (room.occupantCount or primary tenant)
-  const splitCount = Math.max(1, room.occupantCount || 1);
-  const amountPerTenant = Math.round((totalAmount / splitCount) * 100) / 100;
-  const billedTenantIds = room.primaryTenantId ? [room.primaryTenantId] : [];
+  const splitCount = Math.max(1, billedTenantIds.length);
+  const amountPerTenant = Math.round(totalAmount / splitCount);
 
   const record: ElectricityRecord = {
     id: uuidv4(),
@@ -199,17 +158,10 @@ export async function createElectricityRecord(
   };
 
   const db = getFirestoreDb();
-  if (db) {
-    await db
-      .collection(COLLECTIONS.ELECTRICITY)
-      .doc(record.id)
-      .set({ ...record, ownerId });
-  } else {
-    const filePath = getElectricityFilePath(ownerId, payload.month);
-    const monthRecords = await readJson<ElectricityRecord[]>(filePath, []);
-    monthRecords.push(record);
-    await writeJson(filePath, monthRecords);
-  }
+  await db
+    .collection(COLLECTIONS.ELECTRICITY)
+    .doc(record.id)
+    .set({ ...record, ownerId });
 
   // Update room last meter reading
   const updatedRoom = await updateRoom(ownerId, room.id, {
@@ -229,30 +181,12 @@ export async function deleteElectricityForBuilding(
   buildingId: string
 ): Promise<void> {
   const db = getFirestoreDb();
-  if (db) {
-    const snapshot = await db
-      .collection(COLLECTIONS.ELECTRICITY)
-      .where('ownerId', '==', ownerId)
-      .where('buildingId', '==', buildingId)
-      .get();
-    const batch = db.batch();
-    snapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
-    await batch.commit();
-    return;
-  }
-
-  const dir = getElectricityDir(ownerId);
-  const fs = await import('fs/promises');
-  const path = await import('path');
-  try {
-    const entries = await fs.readdir(dir);
-    for (const name of entries) {
-      if (name.endsWith('.json')) {
-        const p = path.join(dir, name);
-        const records = await readJson<ElectricityRecord[]>(p, []);
-        const filtered = records.filter((item) => item.buildingId !== buildingId);
-        await writeJson(p, filtered);
-      }
-    }
-  } catch {}
+  const snapshot = await db
+    .collection(COLLECTIONS.ELECTRICITY)
+    .where('ownerId', '==', ownerId)
+    .where('buildingId', '==', buildingId)
+    .get();
+  const batch = db.batch();
+  snapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
+  await batch.commit();
 }

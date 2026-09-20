@@ -1,6 +1,18 @@
 import fs from 'fs/promises';
 import path from 'path';
 import admin from 'firebase-admin';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBlNDT3Nxrore2hD8JoHJh7Cd23m6DZZ_4",
+  authDomain: "pg-management-4e5f4.firebaseapp.com",
+  projectId: "pg-management-4e5f4",
+  storageBucket: "pg-management-4e5f4.firebasestorage.app",
+  messagingSenderId: "788310595999",
+  appId: "1:788310595999:web:4c3443208fe844c743c5aa",
+  measurementId: "G-QF0RFHNWWB"
+};
 
 // Load .env or .env.local
 async function loadEnv() {
@@ -44,17 +56,16 @@ async function main() {
   let privateKey = process.env.FIREBASE_PRIVATE_KEY;
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-  if (!serviceAccountKey && (!projectId || !clientEmail || !privateKey)) {
-    console.error('❌ Error: Firebase environment variables not found.');
-    console.error('Please configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in .env.local or your environment.');
-    process.exit(1);
-  }
+  let db;
 
   if (serviceAccountKey) {
     admin.initializeApp({
       credential: admin.credential.cert(JSON.parse(serviceAccountKey)),
     });
-  } else {
+    db = admin.firestore();
+    db.settings({ ignoreUndefinedProperties: true });
+    console.log(`🚀 Connected to Firebase Project via Admin SDK: ${projectId || firebaseConfig.projectId}`);
+  } else if (projectId && clientEmail && privateKey) {
     privateKey = privateKey.replace(/\\n/g, '\n');
     admin.initializeApp({
       credential: admin.credential.cert({
@@ -63,11 +74,14 @@ async function main() {
         privateKey,
       }),
     });
+    db = admin.firestore();
+    db.settings({ ignoreUndefinedProperties: true });
+    console.log(`🚀 Connected to Firebase Project via Admin SDK: ${projectId}`);
+  } else {
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+    db = app.firestore();
+    console.log(`🚀 Connected to Firebase Project via firebaseConfig: ${firebaseConfig.projectId}`);
   }
-
-  const db = admin.firestore();
-  db.settings({ ignoreUndefinedProperties: true });
-  console.log(`🚀 Connected to Firebase Project: ${admin.app().options.credential.projectId || projectId}`);
 
   const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 
