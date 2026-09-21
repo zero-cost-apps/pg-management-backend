@@ -239,7 +239,25 @@ async function runTests() {
   assert.strictEqual(annexRooms.status, 200);
   assert.strictEqual(annexRooms.body.data.rooms.length, 5); // 2 on ground + 3 on floor 1
   assert.ok(annexRooms.body.data.rooms.some(r => r.floor === 0 && r.roomNumber === 'G01'));
-  console.log('   ✅ Ground floor (floor 0) and floor-wise building config passed.');
+  assert.ok(annexRooms.body.data.rooms.some(r => r.floor === 1 && r.roomNumber === '101'));
+
+  // Test POST /buildings/:id/generate-rooms with added floor
+  console.log('    Testing POST /buildings/:id/generate-rooms to sync missing rooms...');
+  const generateMore = await request(`/buildings/${floorWiseBld.body.data.building.id}/generate-rooms`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      floorConfigs: [
+        { floor: 0, roomCount: 2, name: 'Ground Floor' },
+        { floor: 1, roomCount: 3, name: '1st Floor' },
+        { floor: 2, roomCount: 2, name: '2nd Floor' },
+      ],
+    }),
+  });
+  assert.strictEqual(generateMore.status, 200);
+  assert.strictEqual(generateMore.body.data.generatedCount, 2); // only 2 new rooms on floor 2
+  assert.strictEqual(generateMore.body.data.totalRoomsNow, 7);
+  console.log('   ✅ Ground floor (floor 0), floor-wise room generation and /generate-rooms passed.');
 
   // 9. Test Tenant check-in with Co-Occupant
   console.log('9. Testing POST /tenants (Check-In) with co-occupant...');

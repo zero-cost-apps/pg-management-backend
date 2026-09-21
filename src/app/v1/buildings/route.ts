@@ -146,9 +146,14 @@ export async function POST(req: NextRequest) {
     // Optional: auto-provision rooms if floorConfigs provided and generateRooms is true
     if (body.generateRooms && processedFloorConfigs && processedFloorConfigs.length > 0) {
       const today = new Date().toISOString().split('T')[0];
-      const defaultRtId = processedRoomTypes[0]?.id || uuidv4();
-      const defaultCap = processedRoomTypes[0]?.capacity || 2;
-      const defaultRent = processedRoomTypes[0]?.baseRent || 10000;
+      const selectedRt = (body.defaultRoomTypeId 
+        ? processedRoomTypes.find((r) => r.id === body.defaultRoomTypeId) 
+        : null) || processedRoomTypes[0];
+      const defaultRtId = selectedRt?.id || uuidv4();
+      const defaultCap = selectedRt?.capacity || 2;
+      const defaultRent = selectedRt?.baseRent || 10000;
+      const hasAttachedBathroom = body.hasAttachedBathroom !== false;
+      const hasAirConditioner = Boolean(body.hasAirConditioner);
 
       for (const fc of processedFloorConfigs) {
         for (let idx = 1; idx <= fc.roomCount; idx++) {
@@ -164,9 +169,9 @@ export async function POST(req: NextRequest) {
             status: 'vacant',
             primaryTenantId: null,
             maintenanceReason: null,
-            hasAttachedBathroom: true,
-            hasAirConditioner: false,
-            hasBalcony: idx % 2 === 0,
+            hasAttachedBathroom,
+            hasAirConditioner,
+            hasBalcony: body.hasBalcony !== undefined ? Boolean(body.hasBalcony) : idx % 2 === 0,
             meterNumber: `MTR-${generatedCode}-${roomNumber}`,
             lastMeterReading: 100 * (fc.floor === 0 ? 1 : fc.floor) + idx * 10,
             lastMeterReadingDate: today,
