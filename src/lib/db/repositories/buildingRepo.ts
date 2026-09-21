@@ -66,16 +66,22 @@ export async function computeBuildingStats(
   };
 }
 
+function stripUndefined(obj: any): any {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v !== undefined)
+  );
+}
+
 export async function createBuilding(
   ownerId: string,
   building: Building
 ): Promise<Building> {
   const db = getFirestoreDb();
   const { stats: _stats, ...cleanBuilding } = building;
-  await db.collection(COLLECTIONS.BUILDINGS).doc(building.id).set({
+  await db.collection(COLLECTIONS.BUILDINGS).doc(building.id).set(stripUndefined({
     ...cleanBuilding,
     ownerId,
-  });
+  }));
   const stats = await computeBuildingStats(ownerId, building.id);
   return { ...building, ownerId, stats };
 }
@@ -88,7 +94,6 @@ export async function updateBuilding(
   const current = await getBuilding(ownerId, buildingId);
   if (!current) return null;
 
-  // Do not allow changing ownerId or id
   const updated: Building = {
     ...current,
     ...updates,
@@ -98,7 +103,7 @@ export async function updateBuilding(
   delete updated.stats;
 
   const db = getFirestoreDb();
-  await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).set(updated);
+  await db.collection(COLLECTIONS.BUILDINGS).doc(buildingId).set(stripUndefined(updated));
   const stats = await computeBuildingStats(ownerId, buildingId);
   return { ...updated, stats };
 }

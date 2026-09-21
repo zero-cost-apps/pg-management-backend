@@ -92,12 +92,18 @@ export async function listRooms(
   return withOccupantCount;
 }
 
+function stripUndefined(obj: any): any {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v !== undefined)
+  );
+}
+
 export async function createRoom(ownerId: string, room: Room): Promise<Room> {
   const db = getFirestoreDb();
   const { occupantCount: _count, ...cleanRoom } = room;
   const toSave = { ...cleanRoom, ownerId };
 
-  await db.collection(COLLECTIONS.ROOMS).doc(room.id).set(toSave);
+  await db.collection(COLLECTIONS.ROOMS).doc(room.id).set(stripUndefined(toSave));
   const occupantCount = await computeOccupantCount(
     ownerId,
     room.id,
@@ -118,13 +124,12 @@ export async function updateRoom(
     ...current,
     ...updates,
     id: current.id,
-    buildingId: current.buildingId,
-    ownerId,
+    ownerId: current.ownerId,
   };
   delete updated.occupantCount;
 
   const db = getFirestoreDb();
-  await db.collection(COLLECTIONS.ROOMS).doc(roomId).set(updated);
+  await db.collection(COLLECTIONS.ROOMS).doc(roomId).set(stripUndefined(updated));
   const occupantCount = await computeOccupantCount(
     ownerId,
     roomId,

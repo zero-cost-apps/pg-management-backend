@@ -182,6 +182,65 @@ async function runTests() {
   assert.strictEqual(toVacant.body.data.room.status, 'vacant');
   console.log('   ✅ Room creation and status transitions passed.');
 
+  // 8b. Test Ground Floor (Floor 0) and Floor-Wise Building Configuration
+  console.log('8b. Testing Ground Floor (floor: 0) room creation & floor filter...');
+  const groundRoom = await request('/rooms', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      buildingId,
+      roomNumber: 'G01',
+      floor: 0,
+      capacity: 1,
+      baseRent: 14000,
+      hasAirConditioner: false,
+      hasAttachedBathroom: true,
+      hasBalcony: false,
+    }),
+  });
+  assert.strictEqual(groundRoom.status, 201);
+  assert.strictEqual(groundRoom.body.data.room.floor, 0);
+
+  // Test GET /rooms?floor=0
+  const floor0Rooms = await request(`/rooms?buildingId=${buildingId}&floor=0`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  assert.strictEqual(floor0Rooms.status, 200);
+  assert.ok(floor0Rooms.body.data.rooms.length >= 1);
+  assert.ok(floor0Rooms.body.data.rooms.every(r => r.floor === 0));
+
+  // Test Building creation with floor-wise room count (floorConfigs)
+  console.log('    Testing Building creation with floorConfigs (Floor-Wise room count)...');
+  const floorWiseBld = await request('/buildings', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      name: 'Skyline Annex',
+      code: 'SKA',
+      address: 'Plot 45, Indiranagar',
+      city: 'Bengaluru',
+      electricityRatePerUnit: 11,
+      billingDueDay: 5,
+      generateRooms: true,
+      floorConfigs: [
+        { floor: 0, roomCount: 2, name: 'Ground Floor' },
+        { floor: 1, roomCount: 3, name: '1st Floor' },
+      ],
+      roomTypes: [
+        { name: 'Standard Sharing', capacity: 2, baseRent: 9000 },
+      ],
+    }),
+  });
+  assert.strictEqual(floorWiseBld.status, 201);
+  assert.strictEqual(floorWiseBld.body.data.building.floorConfigs.length, 2);
+  const annexRooms = await request(`/rooms?buildingId=${floorWiseBld.body.data.building.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  assert.strictEqual(annexRooms.status, 200);
+  assert.strictEqual(annexRooms.body.data.rooms.length, 5); // 2 on ground + 3 on floor 1
+  assert.ok(annexRooms.body.data.rooms.some(r => r.floor === 0 && r.roomNumber === 'G01'));
+  console.log('   ✅ Ground floor (floor 0) and floor-wise building config passed.');
+
   // 9. Test Tenant check-in with Co-Occupant
   console.log('9. Testing POST /tenants (Check-In) with co-occupant...');
   const checkIn = await request('/tenants', {
@@ -305,7 +364,7 @@ async function runTests() {
     headers: { Authorization: `Bearer ${token}` },
   });
   assert.strictEqual(dash.status, 200);
-  assert.strictEqual(dash.body.data.stats.totalBuildings, 1);
+  assert.strictEqual(dash.body.data.stats.totalBuildings, 2);
   assert.ok(dash.body.data.stats.collectedRevenue >= 16287.5);
 
   const overdue = await request(`/overdue?month=${currentMonth}`, {
