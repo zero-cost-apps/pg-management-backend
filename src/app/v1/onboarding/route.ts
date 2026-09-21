@@ -5,7 +5,7 @@ import { updateUser } from '@/lib/db/repositories/userRepo';
 import { createBuilding } from '@/lib/db/repositories/buildingRepo';
 import { createRoom } from '@/lib/db/repositories/roomRepo';
 import { createTenant } from '@/lib/db/repositories/tenantRepo';
-import { Building, Room, Tenant, RoomTypeConfig } from '@/types';
+import { Building, Room, Tenant, RoomTypeConfig, FloorConfig } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: NextRequest) {
@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
       amenities,
       intakeMode,
       initialTenant,
+      floorConfigs,
+      hasGroundFloor,
     } = body;
 
     const fields: Record<string, string> = {};
@@ -48,17 +50,32 @@ export async function POST(req: NextRequest) {
     if (!address) fields.address = 'Address is required.';
     if (!billingDueDay || billingDueDay < 1 || billingDueDay > 28) fields.billingDueDay = 'Billing due day must be 1-28.';
     if (!electricityRatePerUnit || electricityRatePerUnit <= 0) fields.electricityRatePerUnit = 'Electricity rate must be > 0.';
-    if (!totalFloors || totalFloors < 1 || totalFloors > 20) fields.totalFloors = 'Total floors must be 1-20.';
-    if (!roomsPerFloor || roomsPerFloor < 1 || roomsPerFloor > 30) fields.roomsPerFloor = 'Rooms per floor must be 1-30.';
+
+    const hasFloorConfigs = Array.isArray(floorConfigs) && floorConfigs.length > 0;
+    let computedTotalFloors = totalFloors ? Number(totalFloors) : 1;
+
+    if (hasFloorConfigs) {
+      computedTotalFloors = Math.max(...floorConfigs.map((fc: any) => Number(fc.floor || 0)));
+      const totalRoomsFromFloors = floorConfigs.reduce((acc: number, fc: any) => acc + Math.max(0, Number(fc.roomCount || 0)), 0);
+      if (totalRoomsFromFloors <= 0) {
+        fields.floorConfigs = 'At least 1 room must be configured across floors.';
+      }
+      if (totalRoomsFromFloors > 500) {
+        return errorResponse('VALIDATION_ERROR', 'Total rooms across floors cannot exceed 500 rooms.', undefined, 400);
+      }
+    } else {
+      if (totalFloors === undefined || totalFloors === null || totalFloors < 0 || totalFloors > 20) fields.totalFloors = 'Total floors must be 0-20.';
+      if (!roomsPerFloor || roomsPerFloor < 1 || roomsPerFloor > 30) fields.roomsPerFloor = 'Rooms per floor must be 1-30.';
+      if (totalFloors * roomsPerFloor > 500) {
+        return errorResponse('VALIDATION_ERROR', 'totalFloors * roomsPerFloor cannot exceed 500 rooms.', undefined, 400);
+      }
+    }
+
     if (!roomCapacity || roomCapacity < 1 || roomCapacity > 6) fields.roomCapacity = 'Room capacity must be 1-6.';
     if (!defaultBaseRent || defaultBaseRent <= 0) fields.defaultBaseRent = 'Default base rent must be > 0.';
 
     if (Object.keys(fields).length > 0) {
       return errorResponse('VALIDATION_ERROR', 'Validation failed.', fields, 400);
-    }
-
-    if (totalFloors * roomsPerFloor > 500) {
-      return errorResponse('VALIDATION_ERROR', 'totalFloors * roomsPerFloor cannot exceed 500 rooms.', undefined, 400);
     }
 
     const ownerId = auth.context.ownerId;
@@ -75,6 +92,14 @@ export async function POST(req: NextRequest) {
     };
 
     const buildingId = uuidv4();
+    const processedFloorConfigs: FloorConfig[] | undefined = hasFloorConfigs
+      ? floorConfigs.map((fc: any) => ({
+          floor: Number(fc.floor),
+          roomCount: Math.max(0, Number(fc.roomCount || 0)),
+          name: fc.name || (Number(fc.floor) === 0 ? 'Ground Floor' : `${fc.floor}th Floor`),
+        }))
+      : undefined;
+
     const building: Building = {
       id: buildingId,
       ownerId,
@@ -82,7 +107,8 @@ export async function POST(req: NextRequest) {
       code: cleanCode,
       address: address.trim(),
       city: city.trim(),
-      totalFloors,
+      totalFloors: computedTotalFloors,
+      floorConfigs: processedFloorConfigs,
       electricityRatePerUnit,
       billingDueDay,
       electricityBillingCycle: 'monthly',
@@ -101,29 +127,59 @@ export async function POST(req: NextRequest) {
     const generatedRooms: Room[] = [];
     const hasAc = Array.isArray(amenities) && amenities.some((a: string) => a.toLowerCase().includes('ac') || a.toLowerCase().includes('air conditioner'));
 
-    for (let floor = 1; floor <= totalFloors; floor++) {
-      for (let idx = 1; idx <= roomsPerFloor; idx++) {
-        const roomNumber = `${floor}${String(idx).padStart(2, '0')}`;
-        const roomId = uuidv4();
-        const room: Room = {
-          id: roomId,
-          buildingId,
-          roomNumber,
-          floor,
-          roomTypeId,
-          capacity: roomCapacity,
-          baseRent: defaultBaseRent,
-          status: 'vacant',
-          primaryTenantId: null,
-          maintenanceReason: null,
-          hasAttachedBathroom: true,
-          hasAirConditioner: hasAc,
-          hasBalcony: idx % 2 === 0,
-          meterNumber: `MTR-${cleanCode}-${roomNumber}`,
-          lastMeterReading: 100 * floor + idx * 10,
-          lastMeterReadingDate: today,
-        };
-        generatedRooms.push(room);
+    if (processedFloorConfigs && processedFloorConfigs.length > 0) {
+      const sortedConfigs = [...processedFloorConfigs].sort((a, b) => a.floor - b.floor);
+      for (const fc of sortedConfigs) {
+        for (let idx = 1; idx <= fc.roomCount; idx++) {
+          const roomNumber = fc.floor === 0 ? `G${String(idx).padStart(2, '0')}` : `${fc.floor}${String(idx).padStart(2, '0')}`;
+          const roomId = uuidv4();
+          const room: Room = {
+            id: roomId,
+            buildingId,
+            roomNumber,
+            floor: fc.floor,
+            roomTypeId,
+            capacity: roomCapacity,
+            baseRent: defaultBaseRent,
+            status: 'vacant',
+            primaryTenantId: null,
+            maintenanceReason: null,
+            hasAttachedBathroom: true,
+            hasAirConditioner: hasAc,
+            hasBalcony: idx % 2 === 0,
+            meterNumber: `MTR-${cleanCode}-${roomNumber}`,
+            lastMeterReading: 100 * (fc.floor === 0 ? 1 : fc.floor) + idx * 10,
+            lastMeterReadingDate: today,
+          };
+          generatedRooms.push(room);
+        }
+      }
+    } else {
+      const startFloor = hasGroundFloor ? 0 : 1;
+      for (let floor = startFloor; floor <= totalFloors; floor++) {
+        for (let idx = 1; idx <= roomsPerFloor; idx++) {
+          const roomNumber = floor === 0 ? `G${String(idx).padStart(2, '0')}` : `${floor}${String(idx).padStart(2, '0')}`;
+          const roomId = uuidv4();
+          const room: Room = {
+            id: roomId,
+            buildingId,
+            roomNumber,
+            floor,
+            roomTypeId,
+            capacity: roomCapacity,
+            baseRent: defaultBaseRent,
+            status: 'vacant',
+            primaryTenantId: null,
+            maintenanceReason: null,
+            hasAttachedBathroom: true,
+            hasAirConditioner: hasAc,
+            hasBalcony: idx % 2 === 0,
+            meterNumber: `MTR-${cleanCode}-${roomNumber}`,
+            lastMeterReading: 100 * (floor === 0 ? 1 : floor) + idx * 10,
+            lastMeterReadingDate: today,
+          };
+          generatedRooms.push(room);
+        }
       }
     }
 

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const buildingId = searchParams.get('buildingId') || undefined;
     const status = (searchParams.get('status') as RoomStatus) || undefined;
     const floorParam = searchParams.get('floor');
-    const floor = floorParam ? parseInt(floorParam, 10) : undefined;
+    const floor = floorParam !== null && floorParam !== '' ? parseInt(floorParam, 10) : undefined;
     const search = searchParams.get('search') || undefined;
 
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -73,7 +73,10 @@ export async function POST(req: NextRequest) {
 
     if (!buildingId) fields.buildingId = 'buildingId is required.';
     if (!roomNumber) fields.roomNumber = 'roomNumber is required.';
-    if (!floor || floor < 1) fields.floor = 'floor must be >= 1.';
+    const numFloor = Number(floor);
+    if (floor === undefined || floor === null || isNaN(numFloor) || numFloor < 0) {
+      fields.floor = 'Floor must be >= 0 (0 for Ground Floor).';
+    }
     if (!capacity || capacity < 1 || capacity > 8) fields.capacity = 'capacity must be 1-8.';
     if (!baseRent || baseRent <= 0) fields.baseRent = 'baseRent must be > 0.';
 
@@ -86,10 +89,10 @@ export async function POST(req: NextRequest) {
       return errorResponse('NOT_FOUND', 'Building not found.', undefined, 404);
     }
 
-    if (floor > building.totalFloors) {
+    if (numFloor > building.totalFloors) {
       return errorResponse(
         'VALIDATION_ERROR',
-        `Floor ${floor} exceeds building totalFloors (${building.totalFloors}).`,
+        `Floor ${numFloor} exceeds building totalFloors (${building.totalFloors}).`,
         { floor: 'exceeds building total floors' },
         400
       );
@@ -112,7 +115,7 @@ export async function POST(req: NextRequest) {
       id: uuidv4(),
       buildingId,
       roomNumber: cleanRoomNumber,
-      floor,
+      floor: numFloor,
       roomTypeId: roomTypeId || (building.roomTypes[0]?.id || uuidv4()),
       capacity,
       baseRent,

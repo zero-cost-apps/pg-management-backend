@@ -83,6 +83,12 @@ export interface BuildingStats {
   maintenanceRooms: number;
 }
 
+export interface FloorConfig {
+  floor: number; // 0 for Ground Floor, 1 for 1st Floor, etc.
+  roomCount: number;
+  name?: string;
+}
+
 export interface Building {
   id: string;
   ownerId: string;
@@ -91,6 +97,7 @@ export interface Building {
   address: string;
   city: string;
   totalFloors: number;
+  floorConfigs?: FloorConfig[];
   electricityRatePerUnit: number;
   billingDueDay: number;
   electricityBillingCycle: ElectricityBillingCycle;
@@ -108,7 +115,7 @@ export interface Room {
   id: string;
   buildingId: string;
   roomNumber: string;
-  floor: number;
+  floor: number; // 0 for Ground Floor, 1 for 1st Floor, etc.
   roomTypeId: string;
   capacity: number;
   baseRent: number;

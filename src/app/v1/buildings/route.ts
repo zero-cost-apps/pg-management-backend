@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import { successResponse, errorResponse } from '@/lib/utils/envelope';
 import { authenticateRequest } from '@/lib/auth/authGuard';
 import { listBuildings, createBuilding } from '@/lib/db/repositories/buildingRepo';
-import { Building, RoomTypeConfig } from '@/types';
+import { createRoom } from '@/lib/db/repositories/roomRepo';
+import { Building, RoomTypeConfig, Room, FloorConfig } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(req: NextRequest) {
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
       address,
       city,
       totalFloors,
+      floorConfigs,
       electricityRatePerUnit,
       billingDueDay,
       electricityBillingCycle,
@@ -71,8 +73,14 @@ export async function POST(req: NextRequest) {
     if (!city || typeof city !== 'string' || !city.trim()) {
       fields.city = 'City is required.';
     }
-    if (!totalFloors || totalFloors < 1 || totalFloors > 50) {
-      fields.totalFloors = 'totalFloors must be between 1 and 50.';
+
+    let parsedTotalFloors = totalFloors !== undefined ? Number(totalFloors) : undefined;
+    if (parsedTotalFloors === undefined && Array.isArray(floorConfigs) && floorConfigs.length > 0) {
+      parsedTotalFloors = Math.max(...floorConfigs.map((f: any) => Number(f.floor || 0)));
+    }
+
+    if (parsedTotalFloors === undefined || isNaN(parsedTotalFloors) || parsedTotalFloors < 0 || parsedTotalFloors > 50) {
+      fields.totalFloors = 'totalFloors must be between 0 and 50 (0 for Ground Floor only).';
     }
     if (electricityRatePerUnit === undefined || electricityRatePerUnit <= 0) {
       fields.electricityRatePerUnit = 'electricityRatePerUnit must be > 0.';
@@ -82,6 +90,9 @@ export async function POST(req: NextRequest) {
     }
     if (!roomTypes || !Array.isArray(roomTypes) || roomTypes.length === 0) {
       fields.roomTypes = 'At least one roomType is required.';
+    }
+    if (floorConfigs && !Array.isArray(floorConfigs)) {
+      fields.floorConfigs = 'floorConfigs must be an array.';
     }
 
     if (Object.keys(fields).length > 0) {
@@ -101,6 +112,14 @@ export async function POST(req: NextRequest) {
       description: rt.description || '',
     }));
 
+    const processedFloorConfigs: FloorConfig[] | undefined = Array.isArray(floorConfigs)
+      ? floorConfigs.map((fc: any) => ({
+          floor: Number(fc.floor),
+          roomCount: Math.max(0, Number(fc.roomCount || 0)),
+          name: fc.name || (Number(fc.floor) === 0 ? 'Ground Floor' : `${fc.floor}th Floor`),
+        }))
+      : undefined;
+
     const building: Building = {
       id: uuidv4(),
       ownerId,
@@ -108,7 +127,8 @@ export async function POST(req: NextRequest) {
       code: generatedCode,
       address: address.trim(),
       city: city.trim(),
-      totalFloors,
+      totalFloors: parsedTotalFloors ?? 1,
+      floorConfigs: processedFloorConfigs,
       electricityRatePerUnit,
       billingDueDay,
       electricityBillingCycle: electricityBillingCycle || 'monthly',
@@ -122,6 +142,40 @@ export async function POST(req: NextRequest) {
     };
 
     const created = await createBuilding(ownerId, building);
+
+    // Optional: auto-provision rooms if floorConfigs provided and generateRooms is true
+    if (body.generateRooms && processedFloorConfigs && processedFloorConfigs.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const defaultRtId = processedRoomTypes[0]?.id || uuidv4();
+      const defaultCap = processedRoomTypes[0]?.capacity || 2;
+      const defaultRent = processedRoomTypes[0]?.baseRent || 10000;
+
+      for (const fc of processedFloorConfigs) {
+        for (let idx = 1; idx <= fc.roomCount; idx++) {
+          const roomNumber = fc.floor === 0 ? `G${String(idx).padStart(2, '0')}` : `${fc.floor}${String(idx).padStart(2, '0')}`;
+          const newRoom: Room = {
+            id: uuidv4(),
+            buildingId: created.id,
+            roomNumber,
+            floor: fc.floor,
+            roomTypeId: defaultRtId,
+            capacity: defaultCap,
+            baseRent: defaultRent,
+            status: 'vacant',
+            primaryTenantId: null,
+            maintenanceReason: null,
+            hasAttachedBathroom: true,
+            hasAirConditioner: false,
+            hasBalcony: idx % 2 === 0,
+            meterNumber: `MTR-${generatedCode}-${roomNumber}`,
+            lastMeterReading: 100 * (fc.floor === 0 ? 1 : fc.floor) + idx * 10,
+            lastMeterReadingDate: today,
+          };
+          await createRoom(ownerId, newRoom);
+        }
+      }
+    }
+
     return successResponse({ building: created }, undefined, 201);
   } catch (err) {
     console.error('Create building error:', err);
